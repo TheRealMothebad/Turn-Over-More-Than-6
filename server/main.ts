@@ -3,20 +3,48 @@ import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { v4 } from "https://deno.land/std@0.208.0/uuid/mod.ts";
 import { Game } from "./game.ts";
 
-const clients = new Map<string, WebSocket>();
-const game = new Game();
+const connections: Map<string, WebSocket> = new Map();
+const games: Game[] = [];
 
 function handler(req: Request): Response | Promise<Response> {
+
+  //query active games
+  if (req.method === "GET" && req.url.pathname === "/games") {
+    return game_list();
+  }
+
+  //attempt to rejoin active game by UUID
+  if (req.method === "POST" && req.url.pathname === "/rejoin") {
+    return rejoin(req);
+  }
+
+  //create a websocket connection
+  //should only happen on the /game page to join a game
+  if (req.method === "GET" && req.url.pathname === "/ws") {
+    return make_websocket(req);
+  }
+}
+
+function game_list(): Response | Promise<Response> {
+
+}
+
+function rejoin_game(req: Request): Response | Promise<Response> {
+
+}
+
+function make_websocket(req: Request): Response | Promise<Response> {
   const { socket, response } = Deno.upgradeWebSocket(req);
 
   let clientId: string | null = null;
 
   socket.onopen = () => {
-    clientId = v4.generate();
+    //server should not do anything on open, wait for client to send UUID
+
+    clientId = crypto.randomUUID();
     clients.set(clientId, socket);
 
     // add to game with placeholder name
-    game.addPlayer(clientId, "Player-" + clientId.slice(0, 4));
 
     socket.send(JSON.stringify({ type: "assignId", id: clientId }));
     broadcastGameState();
@@ -24,6 +52,11 @@ function handler(req: Request): Response | Promise<Response> {
 
   socket.onmessage = (e) => {
     const msg = JSON.parse(e.data);
+
+
+
+
+
 
     if (msg.type === "resume" && msg.id) {
       clientId = msg.id;
@@ -58,5 +91,6 @@ function broadcastGameState() {
 }
 
 console.log("WebSocket server on ws://localhost:8080");
+games.push(new Game([["uuid", "Steve"]]));
 await serve(handler, { port: 8080 });
 
