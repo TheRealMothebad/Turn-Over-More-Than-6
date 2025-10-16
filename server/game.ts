@@ -4,7 +4,7 @@
 // - array of cards
 //deck_position
 //discard
-//current_player
+//current_player index 
 //forced draws
 // - tuple [uuid, number]
 //players
@@ -17,10 +17,6 @@
 // - extra lives
 // - score
 
-
-
-
-// game.ts
 export class Player {
   uuid: string;
   name: string;
@@ -30,6 +26,7 @@ export class Player {
   lost = false;
   second_chances = 0;
   score = 0;
+  connected = false;
 
   constructor(uuid: string, name: string) {
     this.uuid = uuid;
@@ -38,19 +35,41 @@ export class Player {
 }
 
 export class Game {
-  private players: Map<string, Player> = new Map();
+  private players: Player[] = [];
+  private players_by_uuid: Map<string, Player> = new Map();
   private deck: string[] = [];
+  private top_card: number = 0;
+  //when a player loses, all their cards go in the discard
   private discard: string[] = [];
-  private current_player: Player;
-  private forced_draws: [Player, number];
+  //index in the players array
+  private current_player: number;
+  private forced_draws: [string, number];
 
   public constructor(players: [string, string][]) {
     for (const player: [string, string] of players) {
-      this.players.set(player[0], new Player(player[0], player[1]));
+      let p = new Player(player[0], player[1])
+      this.players.push();
+      this.players_by_uuid.set(player[0], p);
     }
 
     this.build_deck();
     this.shuffle();
+
+    this.current_player = players[0];
+    console.log(this.players);
+    console.log(this.deck);
+  }
+
+  player_draw(player_uuid: string): string?? {
+    
+  }
+
+  player_fold(player_uuid: string): {
+
+  }
+
+  player_use(player_uuid: string, target: number): {
+    
   }
 
   build_deck() {
@@ -81,7 +100,6 @@ export class Game {
       }
     }
 
-    console.log(deck);
     this.deck = deck;
   }
 
@@ -98,7 +116,7 @@ export class Game {
 
 
   serialize() {
-    console.log(this.deck);
+    console.log(Game);
   }
 }
 
