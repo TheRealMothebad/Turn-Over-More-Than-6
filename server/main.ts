@@ -4,20 +4,24 @@ import { v4 } from "https://deno.land/std@0.208.0/uuid/mod.ts";
 import { Game } from "./game.ts";
 
 export class Connection {
-  public uuid: string = "";
+  public client: WebSocket;
+  public uuid: string;
   public game: Game;
 
-  public constructor(ws, uuid, name) {
+  public constructor(ws, uuid) {
     this.client = ws;
+    this.uuid = uuid
+    this.game = find_game(uuid);
   }
 }
 
 //map a connection to a player in a game
-const conn: Map<WebSocket, string> = new Map();
+const conn: Map<WebSocket, Connection> = new Map();
 const clients: Map<string, Connection> = new Map();
 const games: Game[] = [];
 
 function handler(req: Request): Response | Promise<Response> {
+  console.log("Request received");
 
   //query active games
   if (req.method === "GET" && req.url.pathname === "/games") {
@@ -29,81 +33,114 @@ function handler(req: Request): Response | Promise<Response> {
     return rejoin(req);
   }
 
+  //something for joining lobbys, there user is given their UUID
+  //String(crypto.randomUUID())
+
   //create a websocket connection
   //should only happen on the /game page to join a game
-  if (req.method === "GET" && req.upgrade === "websocket") {
+  if (req.method === "GET" && req.headers.get("upgrade") === "websocket") {
+    console.log("websocket");
     return make_websocket(req);
   }
+
+  console.log("final, returning not found");
+  return new Response("Not Found", { status: 404 });
 }
 
 function game_list(): Response | Promise<Response> {
 
+  return new Response("Bad Request", { status: 400 });
 }
 
 function rejoin_game(req: Request): Response | Promise<Response> {
 
+  return new Response("Bad Request", { status: 400 });
 }
 
 function make_websocket(req: Request): Response | Promise<Response> {
   const { socket, response } = Deno.upgradeWebSocket(req);
+  console.log("socket made");
 
   socket.onopen = () => {
     //server should not send any messages on open, wait for client to send UUID
-    connections.set(socket, "");
+    conn.set(socket, "");
+    console.log("open: ", conn);
   };
 
   socket.onmessage = (e) => {
     const msg = JSON.parse(e.data);
 
+    console.log("message: ", conn);
     //make sure we get the client UUID first thing
-    if (connections.get(socket) === "") {
+    if (conn.get(socket) === "") {
       if (msg.uuid === null) {
+        console.log("no message ID");
         socket.close();
       }
-      else if (msg.uuid === "0") {
-        socket.send(JSON.stringify({uuid: String(crypto.randomUUID())}));
-      }
       else if (v4.validate(msg.uuid)) {
-        conn.set(socket, msg.uuid);
-        clients.set(msg.uuid, new Connection(socket));
+        let connection: Connection = new Connection(socket, msg.uuid);
+        //console.log(connection);
+        if (connection.game == null) {
+          console.log("no game found");
+          socket.close();
+        }
+        conn.set(socket, connection);
+        clients.set(msg.uuid, connection);
       }
       else {
         socket.close();
       }
     }
     
-    let result = "";
-    switch (msg.action):
+    let result: [GameAction];
+    switch (msg.action) {
       case "draw":
-        clients.get(conn.get(socket)).game.player_draw(connection.get(socket));
+        result = conn.get(socket).game.player_draw(conn.get(socket).uuid);
         break;
       case "fold":
-        clients.get(conn.get(socket)).game.player_fold(connection.get(socket));
+        result = conn.get(socket).game.player_fold(connection.get(socket));
         break;
       case "use":
-        clients.get(conn.get(socket)).game.player_draw(connection.get(socket), msg.target);
+        result = conn.get(socket).game.player_draw(connection.get(socket), msg.target);
         break;
-
-    broadcast
+    }
+    
+    if (result != null) {
+      for (res of result) {
+        broadcast_game_action(conn.get(socket).game, res);
+      }
+    }
   };
 
   socket.onclose = () => {
-    connections.delete(socket);
+    conn.delete(socket);
   }
 
   return response;
 }
 
-function broadcast_next_action(game) {
-  //const state = game.getState();
-  //const payload = JSON.stringify({ type: "state", players: state });
-  //for (const client of clients.values()) {
-  //  client.send(payload);
-  //}
+
+function broadcast_game_action(game: Game, action: GameAction) {
+  console.log(action);
+  let message = JSON.stringify(action);
+
+  game.players_by_uuid.forEach(player => {
+    clients.get(player.uuid).client.send(message);
+  });
+}
+
+function find_game(uuid: string): Game {
+  for (let game: Game of games) {
+    if (game.get_player(uuid) != null) {
+      console.log("found game");
+      return game;
+    }
+  }
+  return null;
 }
 
 console.log("WebSocket server on ws://localhost:8080");
-games.push(new Game([["uuid", "Steve"]]));
+games.push(new Game([["03561786-3352-4c85-82a9-f302f1cc68a0", "Steve"]]));
 console.log(crypto.randomUUID());
 console.log(v4.validate(crypto.randomUUID()));
 await serve(handler, { port: 8080 });

@@ -14,7 +14,8 @@
   </div>
   <script>
     const socket = new WebSocket("ws://localhost:8080");
-    socket.onopen = () => socket.send("Hello");
+    const message = JSON.stringify({"uuid": "03561786-3352-4c85-82a9-f302f1cc68a0"});
+    socket.onopen = () => socket.send(message);
     socket.onmessage = (e) => console.log("Received:", e.data);
   </script>
 </body>
