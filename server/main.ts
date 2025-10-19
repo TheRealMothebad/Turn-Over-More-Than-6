@@ -15,26 +15,40 @@ export class Connection {
   }
 }
 
+export class Lobby {
+  public players: [string, string][] = []; 
+}
+
 //map a connection to a player in a game
 const conn: Map<WebSocket, Connection> = new Map();
 const clients: Map<string, Connection> = new Map();
 const games: Game[] = [];
 
-function handler(req: Request): Response | Promise<Response> {
+async function handler(req: Request): Promise<Response> {
   console.log("Request received");
+  const url = new URL(req.url);
 
-  //query active games
-  if (req.method === "GET" && req.url.pathname === "/games") {
-    return game_list();
+  // Handle OPTIONS preflight requests
+  if (req.method === "OPTIONS") {
+    return cors_response(new Response(null, { status: 204 }));
   }
 
-  if (req.method === "POST" && req.url.pathname === "/join") {
-    return join_game(req);
+  //query active games
+  if (req.method === "GET" && url.pathname === "/games") {
+    return cors_response(await game_list());
+  }
+
+  if (req.method === "POST" && url.pathname === "/join") {
+    return cors_response(await join_lobby(req));
+  }
+
+  if (req.method === "POST" && url.pathname === "/start") {
+    return cors_response(start_game());
   }
 
   //attempt to rejoin active game by UUID
-  if (req.method === "POST" && req.url.pathname === "/rejoin") {
-    return rejoin(req);
+  if (req.method === "POST" && url.pathname === "/rejoin") {
+    return cors_response(await rejoin(req));
   }
 
   //something for joining lobbys, there user is given their UUID
@@ -42,13 +56,20 @@ function handler(req: Request): Response | Promise<Response> {
 
   //create a websocket connection
   //should only happen on the /game page to join a game
-  if (req.method === "GET" && req.headers.get("upgrade") === "websocket") {
+  if (req.method === "GET" && url.pathname === "/game" && req.headers.get("upgrade") === "websocket") {
     console.log("websocket");
     return make_websocket(req);
   }
 
   console.log("final, returning not found");
-  return new Response("Not Found", { status: 404 });
+  return cors_response(new Response("Not Found", { status: 404 }));
+}
+
+function cors_response(response: Response): Response {
+  response.headers.set("Access-Control-Allow-Origin", "*");
+  response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  response.headers.set("Access-Control-Allow-Headers", "Content-Type");
+  return response;
 }
 
 function game_list(): Response | Promise<Response> {
@@ -56,15 +77,32 @@ function game_list(): Response | Promise<Response> {
   return new Response("Bad Request", { status: 400 });
 }
 
-function join_game(req: Request): Response | Promise<Response> {
+const lobby = new Lobby();
 
-  return new Response("Bad Request", { status: 400 });
+async function join_lobby(req: Request): Promise<Response> {
+  console.log("attempting to join lobby");
+  try {
+    const { name } = await req.json();
+    const uuid = crypto.randomUUID();
+    
+    lobby.players.push([uuid, name]);
+    console.log(lobby);
+
+    return new Response(JSON.stringify({ uuid }), { status: 200 });
+  } catch (error) {
+    console.error("Error joining lobby:", error);
+    return new Response("Bad Request", { status: 400 });
+  }
 }
 
-function rejoin_game(req: Request): Response | Promise<Response> {
-
-  return new Response("Bad Request", { status: 400 });
+function start_game(): Response {
+  console.log("starting game");
+  const game = new Game(lobby.players);
+  games.push(game);
+  lobby.players = [];
+  return new Response("Game started", { status: 200 });
 }
+
 
 function make_websocket(req: Request): Response | Promise<Response> {
   const { socket, response } = Deno.upgradeWebSocket(req);
@@ -110,6 +148,7 @@ function make_websocket(req: Request): Response | Promise<Response> {
         result = conn.get(socket).game.player_fold(conn.get(socket).uuid);
         break;
       case "use":
+        console.log("use");
         result = conn.get(socket).game.player_use(conn.get(socket).uuid, msg.target);
         break;
       case "state":
@@ -118,15 +157,17 @@ function make_websocket(req: Request): Response | Promise<Response> {
     
     if (result != null) {
       for (let res of result) {
-        console.log("sending back", res);
+        console.log("sending back:", res);
         broadcast_game_action(conn.get(socket).game, res);
       }
     }
   };
 
   socket.onclose = () => {
-    let connection: Connection = conn.get(socket)
-    connection.game.get_player(connection.uuid).connected = false;
+    let connection: Connection | string = conn.get(socket);
+    if (typeof connection !== 'string') {
+      connection.game.get_player(connection.uuid).connected = false;
+    }
     conn.delete(socket);
   }
 
@@ -154,8 +195,5 @@ function find_game(uuid: string): Game {
 }
 
 console.log("WebSocket server on ws://localhost:8080");
-games.push(new Game([["03561786-3352-4c85-82a9-f302f1cc68a0", "Steve"]]));
-console.log(crypto.randomUUID());
-console.log(v4.validate(crypto.randomUUID()));
 await serve(handler, { port: 8080 });
 

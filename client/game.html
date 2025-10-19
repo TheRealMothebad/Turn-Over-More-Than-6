@@ -20,8 +20,14 @@
   </div>
   <p id="not_pretty"></p> 
   <script>
-    const socket = new WebSocket("ws://localhost:8080");
-    const message = JSON.stringify({"uuid": "03561786-3352-4c85-82a9-f302f1cc68a0"});
+    console.log("UUID from localStorage on game.html load:", localStorage.getItem("uuid"));
+    let uuid = localStorage.getItem("uuid");
+    if (!uuid) {
+      const urlParams = new URLSearchParams(window.location.search);
+      uuid = urlParams.get("uuid");
+    }
+    const socket = new WebSocket("ws://localhost:8080/game");
+    const message = JSON.stringify({"uuid": uuid});
     socket.onopen = () => socket.send(message);
 
     socket.onmessage = (e) => {

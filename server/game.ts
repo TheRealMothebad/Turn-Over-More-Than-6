@@ -13,7 +13,7 @@
 // - cards
 // - frozen
 // - folded
-// - lost
+// -lost
 // - extra lives
 // - score
 //
@@ -94,12 +94,12 @@ export class Game {
     //
     //if there is a player being forced to draw, only they can draw
     if (this.forced_draws != null && player.order != this.forced_draws[0]) {
-      console.log("ERROR: Forced draw must happen first")
+      console.log("ERROR: Forced draw must happen first");
       return;
     }
 
     //if you have a special card, you have to play it instead of drawing
-    if (this.has_special(player)) {
+    if (this.has_special(player) && this.forced_draws == null) {
       console.log("ERROR: Unplayed special");
       return;
     }
@@ -114,11 +114,6 @@ export class Game {
     console.log("They drew", card);
 
     if (this.forced_draws == null) {
-      //if current player has any special cards the turn does not advance until they are all used
-      if (!this.has_special(player)) {
-        console.log("setting new current player");
-        this.current_player = this.next_current();
-      }
     }
     else {
       this.forced_draws[1]--;
@@ -134,6 +129,7 @@ export class Game {
       this.deck = this.discard;
       this.discard = [];
       this.shuffle();
+      this.top_card = 0;
       actions.push(new GameAction("shuffle", null, null, null));
     }
 
@@ -141,6 +137,7 @@ export class Game {
     if (player.cards.includes(card) && !["f", "s", "d"].includes(card)) {
       if (player.second_chances > 0) {
         player.second_chances--;
+        this.discard.push(card);
       }
       else {
         console.log("player", player.order, "died lol");
@@ -158,10 +155,19 @@ export class Game {
 
         //check if the round is over
         this.check_round_over();
+        this.current_player = this.next_current();
       }
     }
+    else {
+      player.cards.push(card);
+      this.check_round_over();
 
-    player.cards.push(card);
+      //if current player has any special cards the turn does not advance until they are all used
+      if (!this.has_special(player)) {
+        console.log("setting new current player");
+        this.current_player = this.next_current();
+      }
+    }
 
     console.log("draw over");
 
@@ -170,47 +176,54 @@ export class Game {
 
   player_fold(player_uuid: string): [GameAction] {
     let player: Player = this.get_player(player_uuid);
-    console.log(player,"is folding");
+    console.log(player.order,"is folding");
     
     //forced draws have to happen first
     if (this.forced_draws != null) {
+      console.log("ERROR: Forced draw must happen first");
       return;
     }
 
     //it has to be this player's turn
     if (this.current_player != player.order) {
+      console.log("ERROR: It has to be your turn");
       return;
     }
     
     //this player cannot have any unused specials
     if (this.has_special(player)) {
+      console.log("ERROR: You must use specials first");
       return;
     }
 
     player.folded = true;
 
     //go to the next player's turn
-    this.current_player = this.next_current();
     this.check_round_over();
+    this.current_player = this.next_current();
 
     return [new GameAction("fold", player.order, null, null)];
   }
 
   player_use(player_uuid: string, target: number): [GameAction] {
     let player: Player = this.get_player(player_uuid);
+    console.log(player.order,"is using on", target);
 
     //forced draws have to happen first
     if (this.forced_draws != null) {
+      console.log("ERROR: Forced draw must happen first");
       return;
     }
 
     //player has to have a special
     if (!this.has_special(player)) {
+      console.log("ERROR: You must have a special");
       return;
     }
 
     //target has to be an active player
     if (!this.active(target)) {
+      console.log("ERROR: You must be the active player");
       return;
     }
 
@@ -222,6 +235,7 @@ export class Game {
         break;
       }
     }
+    console.log("using", special, "on", target);
 
     //do the action on the target
     switch (special) {
@@ -236,8 +250,14 @@ export class Game {
         break;
     }
 
-    //remove the special from their hand
+    //remove the special card from the player's hand and add to discard
+    const special_index = player.cards.indexOf(special);
+    if (special_index > -1) {
+      let card = player.cards.splice(special_index, 1)[0];
+      this.discard.push(card);
+    }
 
+    this.check_round_over();
 
     //if they have no more special cards advance the turn to the next player
     if (!this.has_special(player)) {
@@ -258,7 +278,7 @@ export class Game {
 
   active(order: number) {
     let p: Player = this.players[order];
-    return !(p.frozen && p.folded && p.lost);
+    return !(p.frozen || p.folded || p.lost);
   }
 
   has_special(p: Player) {
@@ -267,7 +287,7 @@ export class Game {
 
   check_round_over() {
     let all_dead: boolean = true;
-    let seven_cards: boolean = false;
+    let seven_cards: number = -1;
     console.log("checking round over");
     for (let p of this.players) {
       if (this.active(p.order)) {
@@ -281,15 +301,18 @@ export class Game {
         }
       }
       if (card_count > 6) {
-        seven_cards = true;
+        seven_cards = p.order;
       }
     }
     
-    if (all_dead || seven_cards) {
+    if (all_dead || seven_cards >= 0) {
       console.log("round is over!");
       for (let p of this.players) {
         if (!p.lost) {
-          p.score += calc_score(p);
+          p.score += this.calc_score(p);
+          if (p.order == seven_cards) {
+            p.score += 15;
+          }
         }
         //move the cards to the discard
         while (p.cards.length > 0) {
@@ -300,8 +323,8 @@ export class Game {
         p.frozen = false;
         p.folded = false;
       }
+      this.forced_draws = null;
     }
-    this.forced_draws = null;
   }
 
   calc_score(p): number {
