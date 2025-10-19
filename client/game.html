@@ -28,9 +28,9 @@
       console.log("Received:", e);
       let parsed = JSON.parse(e.data);
       
-      document.getElementById("action").textContent = parsed.action;
+      document.getElementById("action").textContent = JSON.stringify(parsed.action);
       pretty_print(parsed.game);
-      document.getElementById("not_pretty").textContent = parsed;
+      document.getElementById("not_pretty").textContent = JSON.stringify(parsed);
     }
 
 

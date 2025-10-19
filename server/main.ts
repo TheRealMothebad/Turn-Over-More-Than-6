@@ -133,7 +133,7 @@ function make_websocket(req: Request): Response | Promise<Response> {
 
 function broadcast_game_action(game: Game, action: GameAction) {
   console.log(action);
-  let message = JSON.stringify(action);
+  let message = JSON.stringify({"action": action, "game": game});
 
   game.players_by_uuid.forEach(player => {
     clients.get(player.uuid).client.send(message);
