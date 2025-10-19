@@ -8,7 +8,11 @@
 
 <body>
 
-  <h2>Turn Over More Than 6</h2>
+  <h2>Turn Over More Than 6 Active Game</h2>
+  <button type="button" onclick="draw()">draw</button>
+  <button type="button" onclick="fold()">fold</button>
+  <button type="button" onclick="use()">use</button>
+  <input type="number" id="target"></input>
   <div>
 
   </div>
@@ -17,5 +21,17 @@
     const message = JSON.stringify({"uuid": "03561786-3352-4c85-82a9-f302f1cc68a0"});
     socket.onopen = () => socket.send(message);
     socket.onmessage = (e) => console.log("Received:", e.data);
+    function draw() {
+      socket.send(JSON.stringify({"action":"draw"}));
+    }
+    function fold() {
+      socket.send(JSON.stringify({"action":"fold"}));
+    }
+    function use() {
+      order = document.getElementById("target").valueAsNumber;
+      console.log("use on", order);
+      socket.send(JSON.stringify({"action":"use", "target":order}));
+    }
+
   </script>
 </body>

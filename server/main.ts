@@ -28,6 +28,10 @@ function handler(req: Request): Response | Promise<Response> {
     return game_list();
   }
 
+  if (req.method === "POST" && req.url.pathname === "/join") {
+    return join_game(req);
+  }
+
   //attempt to rejoin active game by UUID
   if (req.method === "POST" && req.url.pathname === "/rejoin") {
     return rejoin(req);
@@ -49,6 +53,11 @@ function handler(req: Request): Response | Promise<Response> {
 
 function game_list(): Response | Promise<Response> {
 
+  return new Response("Bad Request", { status: 400 });
+}
+
+function join_game(req: Request): Response | Promise<Response> {
+  
   return new Response("Bad Request", { status: 400 });
 }
 
@@ -103,6 +112,8 @@ function make_websocket(req: Request): Response | Promise<Response> {
       case "use":
         result = conn.get(socket).game.player_draw(connection.get(socket), msg.target);
         break;
+      case "state":
+        result = conn.get(socket).game.serialize();
     }
     
     if (result != null) {

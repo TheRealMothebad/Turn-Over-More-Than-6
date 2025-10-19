@@ -144,6 +144,19 @@ export class Game {
       if (this.forced_draws[0] == player.order) {
         this.forced_draws = null;
       }
+
+      //and remove any unplayed special cards they might have
+      for (let i = 0; i < player.cards.length;) {
+        if (player.cards[i] in ["f", "s", "d"]) {
+          player.cards.remove(i);
+        }
+        else {
+          i++;
+        }
+      }
+      
+      //check if the round is over
+      check_round_over();
     }
 
     return actions;
@@ -151,8 +164,24 @@ export class Game {
 
   player_fold(player_uuid: string): [GameAction] {
     let player: Player = this.get_player(uuid);
-    this.
+    
+    //forced draws have to happen first
+    if (this.forced_draws != null) {
+      return;
+    }
 
+    //it has to be this player's turn
+    if (this.current_player != player) {
+      return;
+    }
+    
+    //this player cannot have any unused specials
+    if (this.has_special(player)) {
+      return;
+    }
+
+    player.folded = true;
+    return [new GameAction("folded", player.order, null, null)];
   }
 
   player_use(player_uuid: string, target: number): [GameAction] {
@@ -168,6 +197,11 @@ export class Game {
       return;
     }
 
+    //target has to be an active player
+    if (!this.active(target)) {
+      return;
+    }
+
     //find the action card that the player drew first (in case multiple from draw three)
     let special: string;
     for (let card of player.hand) {
@@ -180,15 +214,22 @@ export class Game {
     //do the action on the target
     switch (special) {
       case "f":
-        if (this.active(target)) {
-
-      }
+        this.players[target].frozen = true;
+        break;
+      case "s":
+        this.players[target].second_chances++;
+        break;
+      case "d":
+        this.forced_draws = [target, 3];
+        break;
     }
 
     //if they have no more special cards advance the turn to the next player
     if (!this.has_special(player.order)) {
       this.current_player = this.next_current();
     }
+
+    return new [GameAction("use", player.order, null, target)];
   }
 
   next_current() {
@@ -205,6 +246,54 @@ export class Game {
   has_special(order: number) {
     let p: Player = this.players[order];
     return ("f" in p.cards || "s" in p.cards || "d" in p.cards);
+  }
+
+  check_round_over() {
+    let all_dead = true;
+    let 7cards = false;
+    for (let p of this.players) {
+      if (this.active(p.order)) {
+        all_dead = fasle;
+      }
+      let card_count = 0;
+      for (let card in p.cards) {
+        if (isFinite(card) && !card.startsWith("+")) {
+          card_count++;
+        }
+      }
+      if (card_count > 6) {
+        7cards = true;
+      }
+    }
+    
+    if (all_dead || 7cards) {
+      for (let p of this.players) {
+        if (!p.lost) {
+          p.score += calc_score(p);
+        }
+        p.deck = [];
+        p.second_chances = 0;
+        p.lost = false;
+        p.frozen = false;
+        p.folded = false;
+      }
+    }
+    this.forced_draws = null;
+  }
+
+  calc_score(p): number {
+    let score = 0;
+    let multiplier = 1;
+    for (let card of p.cards) {
+      if (card === "x2") {
+        multiplier = 2;
+      }
+      if (!isNaN(card)) {
+        score += parseInt(card)
+      }
+    }
+
+    return score * multiplier;
   }
 
   build_deck() {
@@ -246,9 +335,8 @@ export class Game {
     }
   }
 
-
   serialize() {
-    console.log(Game);
+    return String(game);
   }
 }
 
