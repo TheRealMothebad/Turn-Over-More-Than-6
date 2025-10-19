@@ -13,15 +13,30 @@
   <button type="button" onclick="fold()">fold</button>
   <button type="button" onclick="use()">use</button>
   <input type="number" id="target"></input>
-  <div>
+  <br>
+  <p id="action"></p>
+  <div id="players">
 
   </div>
+  <p id="not_pretty"></p> 
   <script>
     const socket = new WebSocket("ws://localhost:8080");
     const message = JSON.stringify({"uuid": "03561786-3352-4c85-82a9-f302f1cc68a0"});
     socket.onopen = () => socket.send(message);
-    socket.onmessage = (e) => console.log("Received:", e.data);
+
+    socket.onmessage = (e) => {
+      console.log("Received:", e);
+      let parsed = JSON.parse(e.data);
+      
+      document.getElementById("action").textContent = parsed.action;
+      pretty_print(parsed.game);
+      document.getElementById("not_pretty").textContent = parsed;
+    }
+
+
+
     function draw() {
+      console.log("attempting draw");
       socket.send(JSON.stringify({"action":"draw"}));
     }
     function fold() {
@@ -31,6 +46,10 @@
       order = document.getElementById("target").valueAsNumber;
       console.log("use on", order);
       socket.send(JSON.stringify({"action":"use", "target":order}));
+    }
+
+    function pretty_print(game) {
+      
     }
 
   </script>

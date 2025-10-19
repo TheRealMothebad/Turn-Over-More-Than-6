@@ -76,7 +76,7 @@ export class Game {
     this.build_deck();
     this.shuffle();
 
-    this.current_player = players[0];
+    this.current_player = 0;
     console.log(this.players);
     //console.log(this.deck);
   }
@@ -86,33 +86,38 @@ export class Game {
   }
 
   player_draw(uuid: string): [GameAction] {
-    console.log(this.deck);
     let player: Player = this.get_player(uuid);
+    console.log("player ", player.order, " draws");
 
     //make sure that this player is supposed to draw
     //TODO: add error messages for illegal behavior
     //
     //if there is a player being forced to draw, only they can draw
     if (this.forced_draws != null && player.order != this.forced_draws[0]) {
+      console.log("ERROR: Forced draw must happen first")
       return;
     }
 
     //if you have a special card, you have to play it instead of drawing
-    if (has_special(player)) {
+    if (this.has_special(player)) {
+      console.log("ERROR: Unplayed special");
       return;
     }
 
     //if nobody is being forced to draw, it has to be your turn to draw
-    if (player.order == this.forced_draws[0]) {
+    if (player.order != this.current_player) {
+      console.log("ERROR: Not your turn", player.order, this.current_player);
       return;
     }
 
     let card: string = this.deck[this.top_card];
+    console.log("They drew", card);
 
     if (this.forced_draws == null) {
       //if current player has any special cards the turn does not advance until they are all used
-      if (!this.has_special(player.order)) {
+      if (!this.has_special(player)) {
         this.current_player = this.next_current();
+        console.log("setting new current player");
       }
     }
     else {
@@ -133,31 +138,37 @@ export class Game {
     }
 
     //player dies if the card drawn matches one they have, and is not an action card
+    console.log("in", card in player.cards, "spec", !(card in ["f", "s", "d"]))
     if (card in player.cards && !(card in ["f", "s", "d"])) {
       if (player.second_chances > 0) {
         player.second_chances--;
       }
-    }
-    else {
-      player.lost = true;
-      //if the player dies from a forced draw then stop forcing them to draw cards
-      if (this.forced_draws[0] == player.order) {
-        this.forced_draws = null;
-      }
+      else {
+        console.log("player", player.order, "died lol");
+        player.lost = true;
+        //if the player dies from a forced draw then stop forcing them to draw cards
+        if (this.forced_draws != null) {
+          this.forced_draws = null;
+        }
 
-      //and remove any unplayed special cards they might have
-      for (let i = 0; i < player.cards.length;) {
-        if (player.cards[i] in ["f", "s", "d"]) {
-          player.cards.remove(i);
+        //and remove any unplayed special cards they might have
+        for (let i = 0; i < player.cards.length;) {
+          if (player.cards[i] in ["f", "s", "d"]) {
+            player.cards.remove(i);
+          }
+          else {
+            i++;
+          }
         }
-        else {
-          i++;
-        }
+
+        //check if the round is over
+        check_round_over();
       }
-      
-      //check if the round is over
-      check_round_over();
     }
+
+    player.cards.push(card);
+
+    console.log("draw over");
 
     return actions;
   }
@@ -193,7 +204,7 @@ export class Game {
     }
 
     //player has to have a special
-    if (!this.has_special(player.order)) {
+    if (!this.has_special(player)) {
       return;
     }
 
@@ -225,7 +236,7 @@ export class Game {
     }
 
     //if they have no more special cards advance the turn to the next player
-    if (!this.has_special(player.order)) {
+    if (!this.has_special(player)) {
       this.current_player = this.next_current();
     }
 
@@ -243,14 +254,13 @@ export class Game {
     return !(p.frozen && p.folded && p.lost);
   }
 
-  has_special(order: number) {
-    let p: Player = this.players[order];
+  has_special(p: player) {
     return ("f" in p.cards || "s" in p.cards || "d" in p.cards);
   }
 
   check_round_over() {
-    let all_dead = true;
-    let 7cards = false;
+    let all_dead: boolean = true;
+    let seven_cards: boolean = false;
     for (let p of this.players) {
       if (this.active(p.order)) {
         all_dead = fasle;
@@ -262,11 +272,11 @@ export class Game {
         }
       }
       if (card_count > 6) {
-        7cards = true;
+        seven_cards = true;
       }
     }
     
-    if (all_dead || 7cards) {
+    if (all_dead || seven_cards) {
       for (let p of this.players) {
         if (!p.lost) {
           p.score += calc_score(p);
@@ -283,13 +293,13 @@ export class Game {
 
   calc_score(p): number {
     let score = 0;
-    let multiplier = 1;
+    let multiplier = 1;has
     for (let card of p.cards) {
       if (card === "x2") {
         multiplier = 2;
       }
       if (!isNaN(card)) {
-        score += parseInt(card)
+        score += parseInt(card);
       }
     }
 

@@ -73,13 +73,12 @@ function make_websocket(req: Request): Response | Promise<Response> {
   socket.onopen = () => {
     //server should not send any messages on open, wait for client to send UUID
     conn.set(socket, "");
-    console.log("open: ", conn);
+    console.log("connection opened");
   };
 
   socket.onmessage = (e) => {
     const msg = JSON.parse(e.data);
 
-    console.log("message: ", conn);
     //make sure we get the client UUID first thing
     if (conn.get(socket) === "") {
       if (msg.uuid === null) {
@@ -117,7 +116,8 @@ function make_websocket(req: Request): Response | Promise<Response> {
     }
     
     if (result != null) {
-      for (res of result) {
+      for (let res of result) {
+        console.log("sending back", res);
         broadcast_game_action(conn.get(socket).game, res);
       }
     }
