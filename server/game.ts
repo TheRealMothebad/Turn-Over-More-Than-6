@@ -152,6 +152,7 @@ export class Game {
         }
 
         //and remove any unplayed special cards they might have
+        //INSTEAD just move all their cards to the discard
         for (let i = 0; i < player.cards.length;) {
           if (player.cards[i] in ["f", "s", "d"]) {
             player.cards.remove(i);
@@ -192,6 +193,9 @@ export class Game {
     }
 
     player.folded = true;
+
+    //go to the next player's turn
+
     return [new GameAction("folded", player.order, null, null)];
   }
 
@@ -281,6 +285,7 @@ export class Game {
         if (!p.lost) {
           p.score += calc_score(p);
         }
+        //need to actually move these to the discard
         p.deck = [];
         p.second_chances = 0;
         p.lost = false;
