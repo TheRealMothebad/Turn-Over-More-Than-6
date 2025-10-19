@@ -57,7 +57,7 @@ function game_list(): Response | Promise<Response> {
 }
 
 function join_game(req: Request): Response | Promise<Response> {
-  
+
   return new Response("Bad Request", { status: 400 });
 }
 
@@ -94,6 +94,7 @@ function make_websocket(req: Request): Response | Promise<Response> {
         }
         conn.set(socket, connection);
         clients.set(msg.uuid, connection);
+        connection.game.get_player(msg.uuid).connected = true;
       }
       else {
         socket.close();
@@ -106,10 +107,10 @@ function make_websocket(req: Request): Response | Promise<Response> {
         result = conn.get(socket).game.player_draw(conn.get(socket).uuid);
         break;
       case "fold":
-        result = conn.get(socket).game.player_fold(connection.get(socket));
+        result = conn.get(socket).game.player_fold(conn.get(socket).uuid);
         break;
       case "use":
-        result = conn.get(socket).game.player_draw(connection.get(socket), msg.target);
+        result = conn.get(socket).game.player_use(conn.get(socket).uuid, msg.target);
         break;
       case "state":
         result = conn.get(socket).game.serialize();
@@ -124,6 +125,8 @@ function make_websocket(req: Request): Response | Promise<Response> {
   };
 
   socket.onclose = () => {
+    let connection: Connection = conn.get(socket)
+    connection.game.get_player(connection.uuid).connected = false;
     conn.delete(socket);
   }
 

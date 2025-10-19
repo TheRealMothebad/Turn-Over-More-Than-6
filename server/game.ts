@@ -85,8 +85,8 @@ export class Game {
      return this.players_by_uuid.get(uuid);
   }
 
-  player_draw(uuid: string): [GameAction] {
-    let player: Player = this.get_player(uuid);
+  player_draw(player_uuid: string): [GameAction] {
+    let player: Player = this.get_player(player_uuid);
     console.log("player", player.order, "draws on", this.current_player, "'s turn");
 
     //make sure that this player is supposed to draw
@@ -138,7 +138,6 @@ export class Game {
     }
 
     //player dies if the card drawn matches one they have, and is not an action card
-    console.log("in", card in player.cards, "spec", !(card in ["f", "s", "d"]))
     if (player.cards.includes(card) && !["f", "s", "d"].includes(card)) {
       if (player.second_chances > 0) {
         player.second_chances--;
@@ -153,6 +152,7 @@ export class Game {
 
         //move all their cards to the discard
         while (player.cards.length > 0) {
+          console.log("moving", player.cards[0],"to discard");
           this.discard.push(player.cards.shift());
         }
 
@@ -170,6 +170,7 @@ export class Game {
 
   player_fold(player_uuid: string): [GameAction] {
     let player: Player = this.get_player(player_uuid);
+    console.log(player,"is folding");
     
     //forced draws have to happen first
     if (this.forced_draws != null) {
@@ -189,6 +190,8 @@ export class Game {
     player.folded = true;
 
     //go to the next player's turn
+    this.current_player = this.next_current();
+    this.check_round_over();
 
     return [new GameAction("fold", player.order, null, null)];
   }
@@ -233,6 +236,9 @@ export class Game {
         break;
     }
 
+    //remove the special from their hand
+
+
     //if they have no more special cards advance the turn to the next player
     if (!this.has_special(player)) {
       this.current_player = this.next_current();
@@ -262,8 +268,10 @@ export class Game {
   check_round_over() {
     let all_dead: boolean = true;
     let seven_cards: boolean = false;
+    console.log("checking round over");
     for (let p of this.players) {
       if (this.active(p.order)) {
+        console.log(p.order, "is still kicking");
         all_dead = false;
       }
       let card_count = 0;
@@ -278,6 +286,7 @@ export class Game {
     }
     
     if (all_dead || seven_cards) {
+      console.log("round is over!");
       for (let p of this.players) {
         if (!p.lost) {
           p.score += calc_score(p);

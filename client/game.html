@@ -49,7 +49,30 @@
     }
 
     function pretty_print(game) {
-      
+      const playersDiv = document.getElementById("players");
+      playersDiv.innerHTML = ""; // Clear previous content
+
+      for (const player of game.players) {
+        const playerContainer = document.createElement("div");
+
+        const nameHeader = document.createElement("h3");
+        nameHeader.textContent = player.name;
+        playerContainer.appendChild(nameHeader);
+
+        const attributesP = document.createElement("p");
+        attributesP.innerHTML = `
+          Cards: ${player.cards.join(", ")}<br>
+          Frozen: ${player.frozen}<br>
+          Folded: ${player.folded}<br>
+          Lost: ${player.lost}<br>
+          Second Chances: ${player.second_chances}<br>
+          Score: ${player.score}<br>
+          Connected: ${player.connected}
+        `;
+        playerContainer.appendChild(attributesP);
+
+        playersDiv.appendChild(playerContainer);
+      }
     }
 
   </script>
