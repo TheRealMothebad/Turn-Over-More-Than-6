@@ -19,7 +19,7 @@
 //
 //
 //
-// Somewhere I need to do validation on players being targeted by their order #
+//player turn does not advance after the last special is used
 
 export class Player {
   uuid: string;
@@ -114,9 +114,9 @@ export class Game {
     let card: string = this.deck[this.top_card];
     console.log("They drew", card);
 
-    if (this.forced_draws == null) {
-    }
-    else {
+    let forced: boolean = false;
+    if (this.forced_draws != null) {
+      forced = true;
       this.forced_draws[1]--;
       if (this.forced_draws[1] == 0) {
         this.forced_draws = null;
@@ -164,7 +164,7 @@ export class Game {
       this.check_round_over();
 
       //if current player has any special cards the turn does not advance until they are all used
-      if (!this.has_special(player)) {
+      if (!this.has_special(player) && !forced) {
         console.log("setting new current player");
         this.current_player = this.next_current();
       }
@@ -263,12 +263,12 @@ export class Game {
       this.discard.push(card);
     }
 
-    this.check_round_over();
-
     //if they have no more special cards advance the turn to the next player
     if (!this.has_special(player)) {
       this.current_player = this.next_current();
     }
+
+    this.check_round_over();
 
     return [new GameAction("use", player.order, special, target)];
   }
