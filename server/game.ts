@@ -270,7 +270,7 @@ export class Game {
       this.current_player = this.next_current();
     }
 
-    return [new GameAction("use", player.order, null, target)];
+    return [new GameAction("use", player.order, special, target)];
   }
 
   next_current() {
@@ -389,11 +389,15 @@ export class Game {
   }
 
   serialize() {
-    let copy: Game = { ...this }
-    delete copy.deck;
-    delete copy.top_card;
-    copy.discard = this.discard[this.discard.length];
-    return copy;
+    const public_game_state = {
+      players: this.players,
+      players_by_uuid: this.players_by_uuid,
+      top_discard: this.discard.length > 0 ? this.discard[this.discard.length - 1] : null,
+      current_player: this.current_player,
+      forced_draws: this.forced_draws,
+      round_number: this.round_number
+    };
+    return public_game_state;
   }
 }
 

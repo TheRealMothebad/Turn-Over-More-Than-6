@@ -7,15 +7,23 @@
 </head>
 
 <body>
+  <div class="color-picker-widget">
+    <button class="color-btn" style="background-color: #A52A2A;" onclick="change_color('#A52A2A')"></button>
+    <button class="color-btn" style="background-color: #228B22;" onclick="change_color('#228B22')"></button>
+    <button class="color-btn" style="background-color: #DAA520;" onclick="change_color('#DAA520')"></button>
+    <button class="color-btn" style="background-color: purple;" onclick="change_color('purple')"></button>
+  </div>
 
   <h2>Turn Over More Than 6 Active Game</h2>
-  <button type="button" onclick="draw()">draw</button>
-  <button type="button" onclick="fold()">fold</button>
-  <br>
-  <p id="action"></p>
-  <div id="players">
-
+  <div class="controls-container">
+    <button type="button" onclick="draw()">draw</button>
+    <button type="button" onclick="fold()">fold</button>
   </div>
+
+  <p id="action"></p>
+  <div id="players-container">
+  </div>
+
   <p id="not_pretty"></p> 
   <script>
     console.log("UUID from localStorage on game.html load:", localStorage.getItem("uuid"));
@@ -35,13 +43,32 @@
       console.log("Received:", e);
       let parsed = JSON.parse(e.data);
       
-      //document.getElementById("action").textContent = JSON.stringify(parsed.action);
+      document.getElementById("action").textContent = generate_action_message(parsed.action, parsed.game);
       pretty_print(parsed.game, uuid);
-
       //document.getElementById("not_pretty").textContent = JSON.stringify(parsed);
     }
 
+    function generate_action_message(action, game) {
+      if (!action) {
+        return "";
+      }
 
+      const actorName = game.players[action.actor] ? game.players[action.actor].name : "Unknown Player";
+
+      switch (action.action) {
+        case "draw":
+          return `${actorName} drew the card ${fancy_name(action.card)}.`;
+        case "fold":
+          return `${actorName} folded.`;
+        case "use":
+          const targetName = game.players[action.target] ? game.players[action.target].name : "Unknown Player";
+          return `${actorName} used ${fancy_name(action.card)} on ${targetName}.`;
+        case "shuffle":
+          return "The discard pile was shuffled into the deck.";
+        default:
+          return ``;
+      }
+    }
 
     function draw() {
       console.log("attempting draw");
@@ -52,27 +79,46 @@
       socket.send(JSON.stringify({"action":"fold"}));
     }
     function use(order_target) {
-      let target_player_order = order_target;
-      if (target_player_order === undefined) {
-        target_player_order = document.getElementById("target").valueAsNumber;
-      }
-      console.log("use on", target_player_order);
-      socket.send(JSON.stringify({"action":"use", "target":target_player_order}));
+      console.log("use on", order_target);
+      socket.send(JSON.stringify({"action":"use", "target":order_target}));
     }
 
+    function change_color(color) {
+      const isYouBox = document.querySelector('.is-you');
+      if (isYouBox) {
+        isYouBox.style.backgroundColor = color;
+      }
+    }
+
+    function fancy_name(card) {
+      switch(card) {
+        case "f":
+          return "freeze";
+        case "d":
+          return "draw 3";
+        case "s":
+          return "second life";
+      }
+      return card;
+    }
+
+
     function pretty_print(game, clientUuid) {
-      const playersDiv = document.getElementById("players");
-      playersDiv.innerHTML = ""; // Clear previous content
+      const playersContainer = document.getElementById("players-container");
+      playersContainer.innerHTML = ""; // Clear previous content
 
       for (const player of game.players) {
         const playerContainer = document.createElement("div");
+        playerContainer.classList.add("player-box");
 
         const nameHeader = document.createElement("h3");
         let nameText = player.name;
         if (game.forced_draws && game.forced_draws[0] === player.order) {
           nameText += " <- Forced Draws";
+          playerContainer.classList.add("current-turn");
         } else if (player.order === game.current_player) {
           nameText += " <- Current Player";
+          playerContainer.classList.add("current-turn");
         }
 
         if (player.frozen || player.folded || player.lost) {
@@ -80,7 +126,7 @@
         }
 
         if (player.uuid === clientUuid) {
-          nameText += " (You)";
+          nameText = "(You) " + nameText;
           playerContainer.classList.add("is-you");
         }
         nameHeader.textContent = nameText;
@@ -88,7 +134,7 @@
 
         const attributesP = document.createElement("p");
         attributesP.innerHTML = `
-          Cards: ${player.cards.join(", ")}<br>
+          Cards: ${player.cards.map(fancy_name).join(", ")}<br>
           Frozen: ${player.frozen}<br>
           Folded: ${player.folded}<br>
           Lost: ${player.lost}<br>
@@ -104,10 +150,12 @@
         useButton.onclick = () => use(player.order); // Call use function with player's order
         playerContainer.appendChild(useButton);
 
-        playersDiv.appendChild(playerContainer);
+        playersContainer.appendChild(playerContainer);
       }
 
+
       document.getElementById("not_pretty").innerHTML = `
+      discard pile: ${fancy_name(game.top_discard) ?? ""}<br>
       round number: ${game.round_number}
       `;
     }

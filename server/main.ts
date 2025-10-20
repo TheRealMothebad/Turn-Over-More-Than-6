@@ -170,7 +170,8 @@ function make_websocket(req: Request): Response | Promise<Response> {
         result = conn.get(socket).game.player_use(conn.get(socket).uuid, msg.target);
         break;
       case "state":
-        conn.get(socket).client.send(JSON.stringify({"game": conn.get(socket).game.serialize()}));
+        const serializedGame = conn.get(socket).game.serialize();
+        conn.get(socket).client.send(JSON.stringify({"game": serializedGame}));
         return; // Return early to avoid broadcast
     }
 
@@ -196,7 +197,7 @@ function make_websocket(req: Request): Response | Promise<Response> {
 
 function broadcast_game_action(game: Game, action: GameAction) {
   console.log(action);
-  let message = JSON.stringify({"action": action, "game": game});
+  let message = JSON.stringify({"action": action, "game": game.serialize()});
 
   game.players_by_uuid.forEach(player => {
     let bees = clients.get(player.uuid);
