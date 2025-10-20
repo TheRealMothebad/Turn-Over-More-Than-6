@@ -11,8 +11,6 @@
   <h2>Turn Over More Than 6 Active Game</h2>
   <button type="button" onclick="draw()">draw</button>
   <button type="button" onclick="fold()">fold</button>
-  <button type="button" onclick="use()">use</button>
-  <input type="number" id="target"></input>
   <br>
   <p id="action"></p>
   <div id="players">
@@ -21,22 +19,26 @@
   <p id="not_pretty"></p> 
   <script>
     console.log("UUID from localStorage on game.html load:", localStorage.getItem("uuid"));
-    let uuid = localStorage.getItem("uuid");
+    let uuid = localStorage.getItem("uuid") || sessionStorage.getItem("uuid");
     if (!uuid) {
       const urlParams = new URLSearchParams(window.location.search);
       uuid = urlParams.get("uuid");
     }
     const socket = new WebSocket("ws://localhost:8080/game");
     const message = JSON.stringify({"uuid": uuid});
-    socket.onopen = () => socket.send(message);
+    socket.onopen = () => {
+      socket.send(message);
+      socket.send(JSON.stringify({"action":"state"}));
+    };
 
     socket.onmessage = (e) => {
       console.log("Received:", e);
       let parsed = JSON.parse(e.data);
       
-      document.getElementById("action").textContent = JSON.stringify(parsed.action);
-      pretty_print(parsed.game);
-      document.getElementById("not_pretty").textContent = JSON.stringify(parsed);
+      //document.getElementById("action").textContent = JSON.stringify(parsed.action);
+      pretty_print(parsed.game, uuid);
+
+      //document.getElementById("not_pretty").textContent = JSON.stringify(parsed);
     }
 
 
@@ -46,15 +48,19 @@
       socket.send(JSON.stringify({"action":"draw"}));
     }
     function fold() {
+      console.log("attempting fold");
       socket.send(JSON.stringify({"action":"fold"}));
     }
-    function use() {
-      order = document.getElementById("target").valueAsNumber;
-      console.log("use on", order);
-      socket.send(JSON.stringify({"action":"use", "target":order}));
+    function use(order_target) {
+      let target_player_order = order_target;
+      if (target_player_order === undefined) {
+        target_player_order = document.getElementById("target").valueAsNumber;
+      }
+      console.log("use on", target_player_order);
+      socket.send(JSON.stringify({"action":"use", "target":target_player_order}));
     }
 
-    function pretty_print(game) {
+    function pretty_print(game, clientUuid) {
       const playersDiv = document.getElementById("players");
       playersDiv.innerHTML = ""; // Clear previous content
 
@@ -62,7 +68,22 @@
         const playerContainer = document.createElement("div");
 
         const nameHeader = document.createElement("h3");
-        nameHeader.textContent = player.name;
+        let nameText = player.name;
+        if (game.forced_draws && game.forced_draws[0] === player.order) {
+          nameText += " <- Forced Draws";
+        } else if (player.order === game.current_player) {
+          nameText += " <- Current Player";
+        }
+
+        if (player.frozen || player.folded || player.lost) {
+          nameHeader.classList.add("inactive-player");
+        }
+
+        if (player.uuid === clientUuid) {
+          nameText += " (You)";
+          playerContainer.classList.add("is-you");
+        }
+        nameHeader.textContent = nameText;
         playerContainer.appendChild(nameHeader);
 
         const attributesP = document.createElement("p");
@@ -77,8 +98,18 @@
         `;
         playerContainer.appendChild(attributesP);
 
+        // Add the "Use on this player" button
+        const useButton = document.createElement("button");
+        useButton.textContent = `Use on ${player.name}`;
+        useButton.onclick = () => use(player.order); // Call use function with player's order
+        playerContainer.appendChild(useButton);
+
         playersDiv.appendChild(playerContainer);
       }
+
+      document.getElementById("not_pretty").innerHTML = `
+      round number: ${game.round_number}
+      `;
     }
 
   </script>

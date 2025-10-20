@@ -13,10 +13,8 @@
         const response = await fetch("http://localhost:8080/start", { method: "POST" });
         if (response.ok) {
           console.log("Game started successfully");
-          alert("Game started!");
         } else {
           console.error("Failed to start game");
-          alert("Failed to start game.");
         }
       } catch (error) {
         console.error("Error starting game:", error);

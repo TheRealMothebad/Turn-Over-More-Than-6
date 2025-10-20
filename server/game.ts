@@ -65,6 +65,7 @@ export class Game {
   private current_player: number = 0;
   //which player is being forced to draw a card [order, draws_remaining]
   private forced_draws: [number, number];
+  private round_number: number = 1;
 
   public constructor(players: [string, string][]) {
     players.forEach((player, index) => {
@@ -105,7 +106,7 @@ export class Game {
     }
 
     //if nobody is being forced to draw, it has to be your turn to draw
-    if (player.order != this.current_player) {
+    if (this.forced_draws == null && player.order != this.current_player) {
       console.log("ERROR: Not your turn", player.order, this.current_player);
       return;
     }
@@ -209,6 +210,11 @@ export class Game {
     let player: Player = this.get_player(player_uuid);
     console.log(player.order,"is using on", target);
 
+    if (target == null || target >= this.players.length) {
+      console.log("ERROR: Bad target");
+      return;
+    }
+
     //forced draws have to happen first
     if (this.forced_draws != null) {
       console.log("ERROR: Forced draw must happen first");
@@ -307,6 +313,7 @@ export class Game {
     
     if (all_dead || seven_cards >= 0) {
       console.log("round is over!");
+      this.round_number++;
       for (let p of this.players) {
         if (!p.lost) {
           p.score += this.calc_score(p);
@@ -382,7 +389,11 @@ export class Game {
   }
 
   serialize() {
-    return JSON.stringify(this);
+    let copy: Game = { ...this }
+    delete copy.deck;
+    delete copy.top_card;
+    copy.discard = this.discard[this.discard.length];
+    return copy;
   }
 }
 

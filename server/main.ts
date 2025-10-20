@@ -42,6 +42,10 @@ async function handler(req: Request): Promise<Response> {
     return cors_response(await join_lobby(req));
   }
 
+  if (req.method === "GET" && url.pathname === "/game_status") {
+    return cors_response(game_status(url));
+  }
+
   if (req.method === "POST" && url.pathname === "/start") {
     return cors_response(start_game());
   }
@@ -95,6 +99,20 @@ async function join_lobby(req: Request): Promise<Response> {
   }
 }
 
+function game_status(url: URL): Response {
+  const uuid = url.searchParams.get("uuid");
+  let game_started = false;
+  if (uuid) {
+    for (const game of games) {
+      if (game.get_player(uuid)) {
+        game_started = true;
+        break;
+      }
+    }
+  }
+  return new Response(JSON.stringify({ game_started }), { status: 200 });
+}
+
 function start_game(): Response {
   console.log("starting game");
   const game = new Game(lobby.players);
@@ -125,7 +143,6 @@ function make_websocket(req: Request): Response | Promise<Response> {
       }
       else if (v4.validate(msg.uuid)) {
         let connection: Connection = new Connection(socket, msg.uuid);
-        //console.log(connection);
         if (connection.game == null) {
           console.log("no game found");
           socket.close();
@@ -137,6 +154,7 @@ function make_websocket(req: Request): Response | Promise<Response> {
       else {
         socket.close();
       }
+      return; // Return early after handling initial message
     }
     
     let result: [GameAction];
@@ -152,12 +170,13 @@ function make_websocket(req: Request): Response | Promise<Response> {
         result = conn.get(socket).game.player_use(conn.get(socket).uuid, msg.target);
         break;
       case "state":
-        result = conn.get(socket).game.serialize();
+        conn.get(socket).client.send(JSON.stringify({"game": conn.get(socket).game.serialize()}));
+        return; // Return early to avoid broadcast
     }
-    
+
     if (result != null) {
       for (let res of result) {
-        console.log("sending back:", res);
+        console.log("sending back", res);
         broadcast_game_action(conn.get(socket).game, res);
       }
     }
@@ -180,7 +199,10 @@ function broadcast_game_action(game: Game, action: GameAction) {
   let message = JSON.stringify({"action": action, "game": game});
 
   game.players_by_uuid.forEach(player => {
-    clients.get(player.uuid).client.send(message);
+    let bees = clients.get(player.uuid);
+    if (bees != null) {
+      bees.client.send(message);
+    }
   });
 }
 
