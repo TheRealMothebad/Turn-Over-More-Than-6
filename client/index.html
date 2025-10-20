@@ -15,7 +15,7 @@
 
   <script>
     function join_lobby() {
-      fetch("http://localhost:8080/join", {
+      fetch("http://tomt6.api.umbriac.com/join", {
         method: "POST",
         body: JSON.stringify({
           name: document.getElementById("name").value

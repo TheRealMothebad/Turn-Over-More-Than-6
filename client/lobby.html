@@ -35,7 +35,7 @@
       }
 
       try {
-        const response = await fetch(`http://localhost:8080/game_status?uuid=${uuid}`);
+        const response = await fetch(`http://tomt6.api.umbriac.com/game_status?uuid=${uuid}`);
         if (response.ok) {
           const data = await response.json();
           if (data.game_started) {

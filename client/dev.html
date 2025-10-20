@@ -10,7 +10,7 @@
   <script>
     async function start_game() {
       try {
-        const response = await fetch("http://localhost:8080/start", { method: "POST" });
+        const response = await fetch("http://tomt6.api.umbriac.com/start", { method: "POST" });
         if (response.ok) {
           console.log("Game started successfully");
         } else {
