@@ -32,7 +32,7 @@
       const urlParams = new URLSearchParams(window.location.search);
       uuid = urlParams.get("uuid");
     }
-    const socket = new WebSocket("ws://tomt6.api.umbriac.com/game");
+    const socket = new WebSocket("wss://tomt6.umbriac.com/game");
     const message = JSON.stringify({"uuid": uuid});
     socket.onopen = () => {
       socket.send(message);
