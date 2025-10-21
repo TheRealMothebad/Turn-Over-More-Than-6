@@ -121,7 +121,6 @@ function start_game(): Response {
   return new Response("Game started", { status: 200 });
 }
 
-
 function make_websocket(req: Request): Response | Promise<Response> {
   const { socket, response } = Deno.upgradeWebSocket(req);
   console.log("socket made");
@@ -185,7 +184,7 @@ function make_websocket(req: Request): Response | Promise<Response> {
 
   socket.onclose = () => {
     let connection: Connection | string = conn.get(socket);
-    if (typeof connection !== 'string') {
+    if (typeof connection !== 'string' && connection.game) {
       connection.game.get_player(connection.uuid).connected = false;
     }
     conn.delete(socket);

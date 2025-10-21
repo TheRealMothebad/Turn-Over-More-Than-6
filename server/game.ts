@@ -18,8 +18,7 @@
 // - score
 //
 //
-//
-//player turn does not advance after the last special is used
+//crash pervention with uuids that are not associated with a game
 
 export class Player {
   uuid: string;
