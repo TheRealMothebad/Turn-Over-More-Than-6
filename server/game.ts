@@ -54,6 +54,8 @@ export class GameAction {
 }
 
 export class Game {
+  public uuid: string;
+  public name: string;
   private players: Player[] = [];
   public players_by_uuid: Map<string, Player> = new Map();
   private deck: string[] = [];
@@ -66,7 +68,11 @@ export class Game {
   private forced_draws: [number, number];
   private round_number: number = 1;
 
-  public constructor(players: [string, string][]) {
+  private actions_log: GameAction[] = [];
+
+  public constructor(uuid, name, players: [string, string][]) {
+    this.uuid = uuid;
+    this.name = name;
     players.forEach((player, index) => {
       let p = new Player(player[0], player[1], index)
       this.players.push(p);
@@ -171,6 +177,9 @@ export class Game {
 
     console.log("draw over");
 
+    for (let act in actions) {
+      this.actions_log.push(act);
+    }
     return actions;
   }
 

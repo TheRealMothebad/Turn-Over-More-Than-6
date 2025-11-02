@@ -25,28 +25,39 @@
   </div>
 
   <p id="not_pretty"></p> 
+  <script src="dev.js"></script>
   <script>
-    console.log("UUID from localStorage on game.html load:", localStorage.getItem("uuid"));
-    let uuid = localStorage.getItem("uuid") || sessionStorage.getItem("uuid");
-    if (!uuid) {
-      const urlParams = new URLSearchParams(window.location.search);
-      uuid = urlParams.get("uuid");
-    }
-    const socket = new WebSocket("wss://tomt6.umbriac.com/game");
-    const message = JSON.stringify({"uuid": uuid});
-    socket.onopen = () => {
-      socket.send(message);
-      socket.send(JSON.stringify({"action":"state"}));
-    };
+    let socket;
+    (async () => {
+      console.log("UUID from localStorage on game.html load:", localStorage.getItem("uuid"));
+      let uuid = localStorage.getItem("uuid") || sessionStorage.getItem("uuid");
+      if (!uuid) {
+        const urlParams = new URLSearchParams(window.location.search);
+        uuid = urlParams.get("uuid");
+      }
 
-    socket.onmessage = (e) => {
-      console.log("Received:", e);
-      let parsed = JSON.parse(e.data);
-      
-      document.getElementById("action").textContent = generate_action_message(parsed.action, parsed.game);
-      pretty_print(parsed.game, uuid);
-      //document.getElementById("not_pretty").textContent = JSON.stringify(parsed);
-    }
+      let socketUrl = "wss://tomt6.umbriac.com/game";
+      if (window.IS_DEV) {
+        console.log('Development environment detected, using localhost for WebSocket.');
+        socketUrl = 'ws://localhost:8080/game';
+      }
+
+      socket = new WebSocket(socketUrl);
+      const message = JSON.stringify({"uuid": uuid});
+      socket.onopen = () => {
+        socket.send(message);
+        socket.send(JSON.stringify({"action":"state"}));
+      };
+
+      socket.onmessage = (e) => {
+        console.log("Received:", e);
+        let parsed = JSON.parse(e.data);
+        
+        document.getElementById("action").textContent = generate_action_message(parsed.action, parsed.game);
+        pretty_print(parsed.game, uuid);
+        //document.getElementById("not_pretty").textContent = JSON.stringify(parsed);
+      }
+    })();
 
     function generate_action_message(action, game) {
       if (!action) {
