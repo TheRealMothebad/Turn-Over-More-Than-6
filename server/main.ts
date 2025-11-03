@@ -1,7 +1,7 @@
 // server.ts
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { v4 } from "https://deno.land/std@0.208.0/uuid/mod.ts";
-import { Game } from "./game.ts";
+import { Game, GameAction } from "./game.ts";
 
 export class Connection {
   public client: WebSocket;
@@ -114,7 +114,7 @@ function game_list(): Response | Promise<Response> {
 async function create_lobby(req: Request): Promise<Response> {
   console.log("attempting to create lobby");
   try {
-    const { username, lobby_name } = await req.json();
+    let { username, lobby_name } = await req.json();
 
     if (!username) {
       return new Response("Username is required.", { status: 400 });
@@ -246,7 +246,9 @@ function make_websocket(req: Request): Response | Promise<Response> {
           }
           conn.set(socket, newConnection);
           clients.set(msg.uuid, newConnection);
-          newConnection.game.get_player(msg.uuid).connected = true;
+          let p = newConnection.game.get_player(msg.uuid)
+          p.connected = true;
+          broadcast_game_action(newConnection.game, new GameAction("connect", p.order, null, 1));
         } else {
           console.log("Invalid or missing UUID");
           socket.close();
@@ -263,22 +265,26 @@ function make_websocket(req: Request): Response | Promise<Response> {
       let result: [GameAction];
       switch (msg.action) {
         case "draw":
+          console.log("player", connection.game.get_player(connection.uuid).order, "requested to draw");
           result = connection.game.player_draw(connection.uuid);
           break;
         case "fold":
+          console.log("player", connection.game.get_player(connection.uuid).order, "requested to fold");
           result = connection.game.player_fold(connection.uuid);
           break;
         case "use":
+          console.log("player", connection.game.get_player(connection.uuid).order, "requested to use on", msg.target);
           result = connection.game.player_use(connection.uuid, msg.target);
           break;
         case "state":
+          console.log("player", connection.game.get_player(connection.uuid).order, "requested gamestate");
           const serializedGame = connection.game.serialize();
           connection.client.send(JSON.stringify({ game: serializedGame }));
           return; // Return early to avoid broadcast
       }
 
       if (result) {
-        for (const res of result) {
+        for (let res of result) {
           broadcast_game_action(connection.game, res);
         }
       }
@@ -290,7 +296,9 @@ function make_websocket(req: Request): Response | Promise<Response> {
   socket.onclose = () => {
     let connection: Connection | string = conn.get(socket);
     if (typeof connection !== 'string' && connection.game) {
-      connection.game.get_player(connection.uuid).connected = false;
+      let p = connection.game.get_player(connection.uuid)
+      p.connected = false;
+      broadcast_game_action(connection.game, new GameAction("connect", p.order, null, 0));
     }
     conn.delete(socket);
   }
@@ -300,7 +308,7 @@ function make_websocket(req: Request): Response | Promise<Response> {
 
 
 function broadcast_game_action(game: Game, action: GameAction) {
-  console.log(action);
+  console.log("broadcast", action);
   const message = JSON.stringify({"action": action, "game": game.serialize()});
 
   game.players_by_uuid.forEach(p => {

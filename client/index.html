@@ -20,14 +20,14 @@
   <div id="game-list-container" style="height: 150px; overflow-y: scroll; border: 1px solid #ccc;">
     <!-- Lobby and game list will be populated here -->
   </div>
-  <button type="button" onclick="join_lobby()">Join Selected Lobby</button>
+  <button type="button" onclick="enter_lobby('join')">Join Selected Lobby</button>
 
   <hr>
 
   <h3>Create a new Lobby</h3>
   <label>Lobby Name: </label>
   <input type="text" id="new_lobby_name"></input>
-  <button type="button" onclick="create_lobby()">Create Lobby</button>
+  <button type="button" onclick="enter_lobby('create')">Create Lobby</button>
   
   <p id="errors"></p>
 
@@ -96,25 +96,46 @@
       }
     }
 
-    function create_lobby() {
+    function enter_lobby(action) {
       const username = document.getElementById("username").value;
-      const lobbyName = document.getElementById("new_lobby_name").value;
-
       if (!username) {
         document.getElementById("errors").innerHTML = "Please enter a username.";
         return;
       }
-      if (!lobbyName) {
-        document.getElementById("errors").innerHTML = "Please enter a lobby name.";
-        return;
-      }
 
-      fetch(`${baseUrl}/create`, {
-        method: "POST",
-        body: JSON.stringify({
+      let endpoint;
+      let body;
+
+      if (action === 'create') {
+        const lobbyName = document.getElementById("new_lobby_name").value;
+        if (!lobbyName) {
+          document.getElementById("errors").innerHTML = "Please enter a lobby name.";
+          return;
+        }
+        endpoint = `${baseUrl}/create`;
+        body = JSON.stringify({
           username: username,
           lobby_name: lobbyName
-        }),
+        });
+      } else if (action === 'join') {
+        const selectedLobby = document.querySelector('input[name="game_selection"]:checked');
+        if (!selectedLobby) {
+          document.getElementById("errors").innerHTML = "Please select a lobby to join.";
+          return;
+        }
+        const lobby_uuid = selectedLobby.value;
+        endpoint = `${baseUrl}/join`;
+        body = JSON.stringify({
+          lobby_uuid: lobby_uuid,
+          username: username
+        });
+      } else {
+        return; // Should not happen
+      }
+
+      fetch(endpoint, {
+        method: "POST",
+        body: body,
         headers: {
           "Content-type": "application/json; charset=UTF-8"
         }
@@ -128,72 +149,33 @@
         return response.json();
       })
       .then(data => {
-        console.log("Received data from /create:", data);
-        if (data && data.host_uuid) {
-          localStorage.setItem("uuid", data.host_uuid);
+        console.log(`Received data from /${action}:`, data);
+        const uuid = data.host_uuid || data.player_uuid;
+        if (uuid) {
+          localStorage.setItem("uuid", uuid);
           localStorage.setItem("name", username);
-          sessionStorage.setItem("uuid", data.host_uuid);
+          sessionStorage.setItem("uuid", uuid);
           sessionStorage.setItem("name", username);
-          console.log("UUID and name set in localStorage and sessionStorage.");
-          window.location.href = `lobby.html?uuid=${data.host_uuid}&name=${encodeURIComponent(username)}`;
+          console.log("UUID and name set to", getParam("uuid"), getParam("name"), "in localStorage and sessionStorage.");
+          window.location.href = `lobby.html?uuid=${uuid}&name=${encodeURIComponent(username)}`;
         } else {
           console.error("UUID not found in server response.");
-          document.getElementById("errors").innerHTML = "Failed to get a valid lobby ID from the server.";
+          document.getElementById("errors").innerHTML = "Failed to get a valid ID from the server.";
         }
       })
       .catch(error => {
-        console.error("Error creating lobby:", error);
-        document.getElementById("errors").innerHTML = "Error creating lobby.";
+        console.error(`Error ${action}ing lobby:`, error);
+        document.getElementById("errors").innerHTML = `Error ${action}ing lobby.`;
       });
     }
 
-    function join_lobby() {
-      const username = document.getElementById("username").value;
-      const selectedLobby = document.querySelector('input[name="game_selection"]:checked');
-
-      if (!username) {
-        document.getElementById("errors").innerHTML = "Please enter a username.";
-        return;
+    function getParam(param) {
+      let res = localStorage.getItem(param) || sessionStorage.getItem(param);
+      if (!res) {
+        const urlParams = new URLSearchParams(window.location.search);
+        res = urlParams.get(param);
       }
-      if (!selectedLobby) {
-        document.getElementById("errors").innerHTML = "Please select a lobby to join.";
-        return;
-      }
-
-      const lobby_uuid = selectedLobby.value;
-
-      fetch(`${baseUrl}/join`, {
-        method: "POST",
-        body: JSON.stringify({
-          lobby_uuid: lobby_uuid,
-          username: username
-        }),
-        headers: {
-          "Content-type": "application/json; charset=UTF-8"
-        }
-      }).then(response => {
-        if (!response.ok) {
-          response.text().then(text => {
-            document.getElementById("errors").innerHTML = text;
-          });
-          return Promise.reject('server error');
-        }
-        return response.json();
-      })
-      .then(data => {
-        console.log("Received data from /join:", data);
-        if (data && data.player_uuid) {
-          localStorage.setItem("uuid", data.player_uuid);
-          localStorage.setItem("name", username);
-          sessionStorage.setItem("uuid", data.player_uuid);
-          sessionStorage.setItem("name", username);
-          console.log("UUID and name set in localStorage and sessionStorage.");
-          window.location.href = `lobby.html?uuid=${data.player_uuid}&name=${encodeURIComponent(username)}`;
-        } else {
-          console.error("UUID not found in server response.");
-          document.getElementById("errors").innerHTML = "Failed to get a valid player ID from the server.";
-        }
-      });
+      return res;
     }
   </script>
 </body>

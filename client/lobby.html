@@ -30,11 +30,6 @@
     })();
 
     document.addEventListener("DOMContentLoaded", () => {
-      let name = localStorage.getItem("name") || sessionStorage.getItem("name");
-      if (!name) {
-        const urlParams = new URLSearchParams(window.location.search);
-        name = urlParams.get("name");
-      }
 
       if (name) {
         document.getElementById("welcomeMessage").textContent = `Welcome ${name}, waiting for game to start...`;
@@ -45,11 +40,7 @@
     });
 
     async function check_game_status() {
-      let uuid = localStorage.getItem("uuid") || sessionStorage.getItem("uuid");
-      if (!uuid) {
-        const urlParams = new URLSearchParams(window.location.search);
-        uuid = urlParams.get("uuid");
-      }
+      uuid = getParam("uuid");
 
       try {
         const response = await fetch(`${baseUrl}/game_status?uuid=${uuid}`);
@@ -66,7 +57,7 @@
     }
 
     function start_game() {
-      const uuid = localStorage.getItem("uuid");
+      const uuid = getParam("uuid");
 
       if (!uuid) {
         document.getElementById("errors").innerHTML = "Could not identify you.";
@@ -93,6 +84,15 @@
       .catch(error => {
         console.error("Error starting game:", error);
       });
+    }
+
+    function getParam(param) {
+      let res = localStorage.getItem(param) || sessionStorage.getItem(param);
+      if (!res) {
+        const urlParams = new URLSearchParams(window.location.search);
+        res = urlParams.get(param);
+      }
+      return res;
     }
   </script>
 </body>

@@ -40,7 +40,7 @@ export class Player {
 }
 
 export class GameAction {
-  private action: "draw" | "fold" | "use" | "shuffle";
+  private action: "draw" | "fold" | "use" | "shuffle" | "die" | "connect" | "end";
   private actor: number;
   private card: string;
   private target: number;
@@ -117,7 +117,7 @@ export class Game {
     }
 
     let card: string = this.deck[this.top_card];
-    console.log("They drew", card);
+    console.log(player.name, "drew", card);
 
     let forced: boolean = false;
     if (this.forced_draws != null) {
@@ -137,6 +137,7 @@ export class Game {
       this.shuffle();
       this.top_card = 0;
       actions.push(new GameAction("shuffle", null, null, null));
+      console.log("shuffling");
     }
 
     //player dies if the card drawn matches one they have, and is not an action card
@@ -145,7 +146,9 @@ export class Game {
         player.second_chances--;
         this.discard.push(card);
       }
+      //the player has for sure died
       else {
+        actions.push(new GameAction("die", player.order, card, null));
         console.log("player", player.order, "died lol");
         player.lost = true;
         //if the player dies from a forced draw then stop forcing them to draw cards
@@ -160,32 +163,35 @@ export class Game {
         }
 
         //check if the round is over
-        this.check_round_over();
+        const game_over: GameAction = this.check_round_over();
+        if (game_over) {
+          actions.push(game_over);
+        }
         this.current_player = this.next_current();
+        console.log("its is now", this.current_player, "'s turn");
       }
     }
     else {
       player.cards.push(card);
-      this.check_round_over();
+      const game_over: GameAction = this.check_round_over();
+      if (game_over) {
+        actions.push(game_over);
+      }
 
       //if current player has any special cards the turn does not advance until they are all used
       if (!this.has_special(player) && !forced) {
-        console.log("setting new current player");
         this.current_player = this.next_current();
+        console.log("its is now", this.current_player, "'s turn");
       }
     }
 
     console.log("draw over");
-
-    for (let act in actions) {
-      this.actions_log.push(act);
-    }
+    actions.forEach(act => {this.actions_log.push(act)});
     return actions;
   }
 
   player_fold(player_uuid: string): [GameAction] {
     let player: Player = this.get_player(player_uuid);
-    console.log(player.order,"is folding");
     
     //forced draws have to happen first
     if (this.forced_draws != null) {
@@ -208,15 +214,19 @@ export class Game {
     player.folded = true;
 
     //go to the next player's turn
-    this.check_round_over();
+    const game_over: GameAction = this.check_round_over();
     this.current_player = this.next_current();
+    console.log("its is now", this.current_player, "'s turn");
 
-    return [new GameAction("fold", player.order, null, null)];
+    let actions = [new GameAction("fold", player.order, null, null)];
+    if (game_over) {
+      actions.push(game_over);
+    }
+    return actions;
   }
 
   player_use(player_uuid: string, target: number): [GameAction] {
     let player: Player = this.get_player(player_uuid);
-    console.log(player.order,"is using on", target);
 
     if (target == null || target >= this.players.length) {
       console.log("ERROR: Bad target");
@@ -237,7 +247,7 @@ export class Game {
 
     //target has to be an active player
     if (!this.active(target)) {
-      console.log("ERROR: You must be the active player");
+      console.log("ERROR: You must target an active player");
       return;
     }
 
@@ -255,12 +265,15 @@ export class Game {
     switch (special) {
       case "f":
         this.players[target].frozen = true;
+        console.log(target, "is frozen");
         break;
       case "s":
         this.players[target].second_chances++;
+        console.log(target, "has", this.players[target].second_chances, "second changes");
         break;
       case "d":
         this.forced_draws = [target, 3];
+        console.log(target, "needs to draw 3");
         break;
     }
 
@@ -268,17 +281,23 @@ export class Game {
     const special_index = player.cards.indexOf(special);
     if (special_index > -1) {
       let card = player.cards.splice(special_index, 1)[0];
+      console.log("removed played", card, "from", player.order);
       this.discard.push(card);
     }
 
     //if they have no more special cards advance the turn to the next player
-    if (!this.has_special(player)) {
+    if (!this.has_special(player) || player.frozen) {
       this.current_player = this.next_current();
+      console.log("its is now", this.current_player, "'s turn");
     }
 
-    this.check_round_over();
+    let actions = [new GameAction("use", player.order, special, target)];
+    const game_over: GameAction = this.check_round_over();
+    if (game_over) {
+      actions.push(game_over);
+    }
 
-    return [new GameAction("use", player.order, special, target)];
+    return actions;
   }
 
   next_current() {
@@ -299,7 +318,7 @@ export class Game {
     return (p.cards.includes("f") || p.cards.includes("s") || p.cards.includes("d"));
   }
 
-  check_round_over() {
+  check_round_over(): GameAction {
     let all_dead: boolean = true;
     let seven_cards: number = -1;
     console.log("checking round over");
@@ -340,6 +359,17 @@ export class Game {
       }
       this.forced_draws = null;
     }
+
+    let highplayer: number = 0;
+    for (let i = 1; i < this.players.length; i++) {
+      if (this.players[i].score > this.players[highplayer].score) {
+        highplayer = i;
+      }
+    }
+    if (this.player[highplayer].score > 200) {
+      return new GameAction("end", highplayer, null, null);
+    }
+    return null;
   }
 
   calc_score(p): number {
@@ -403,7 +433,8 @@ export class Game {
       top_discard: this.discard.length > 0 ? this.discard[this.discard.length - 1] : null,
       current_player: this.current_player,
       forced_draws: this.forced_draws,
-      round_number: this.round_number
+      round_number: this.round_number,
+      actions_log: this.actions_log
     };
     return public_game_state;
   }
