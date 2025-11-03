@@ -145,7 +145,7 @@ async function create_lobby(req: Request): Promise<Response> {
 async function join_lobby(req: Request): Promise<Response> {
   try {
     let { username, lobby_uuid } = await req.json();
-    console.log(username, "is attempting to join lobby", uuid);
+    console.log(username, "is attempting to join lobby", lobby_uuid);
 
     if (!username) {
       return new Response("Username is required.", { status: 400 });
