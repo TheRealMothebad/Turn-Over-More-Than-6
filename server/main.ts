@@ -1,6 +1,6 @@
 // server.ts
-import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
-import { v4 } from "https://deno.land/std@0.208.0/uuid/mod.ts";
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { v4 } from "https://deno.land/std@0.224.0/uuid/mod.ts";
 import { Game, GameAction } from "./game.ts";
 
 export class Connection {
@@ -345,7 +345,7 @@ function broadcast_game_action(game: Game, action: GameAction) {
 
   game.players_by_uuid.forEach(p => {
     const player_conn = clients.get(p.uuid);
-    if (player_conn != null) {
+    if (player_conn != null && player_conn.client.readyState === WebSocket.OPEN) {
       player_conn.client.send(message);
     }
   });

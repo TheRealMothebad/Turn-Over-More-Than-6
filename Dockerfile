@@ -22,4 +22,4 @@ COPY --from=builder /app/server/ /app/server/
 EXPOSE 8080
 
 # Set the command to run the server
-CMD ["run", "--allow-net", "server/main.ts"]
+CMD ["run", "--allow-net", "--allow-write", "server/main.ts"]

@@ -131,7 +131,7 @@ export class Game {
     this.top_card++;
     let actions = [new GameAction("draw", player.order, card, null)];
     //shuffle discard into deck
-    if (this.top_card > this.deck.length) {
+    if (this.top_card >= this.deck.length) {
       this.deck = this.discard;
       this.discard = [];
       this.shuffle();
@@ -285,16 +285,16 @@ export class Game {
       this.discard.push(card);
     }
 
-    //if they have no more special cards advance the turn to the next player
-    if (!this.has_special(player) || player.frozen) {
-      this.current_player = this.next_current();
-      console.log("its is now", this.current_player, "'s turn");
-    }
-
     let actions = [new GameAction("use", player.order, special, target)];
     const game_over: GameAction = this.check_round_over();
     if (game_over) {
       actions.push(game_over);
+    }
+
+    //if they have no more special cards advance the turn to the next player
+    if (!this.has_special(player) || player.frozen) {
+      this.current_player = this.next_current();
+      console.log("its is now", this.current_player, "'s turn");
     }
 
     return actions;
@@ -416,6 +416,8 @@ export class Game {
     }
 
     this.deck = deck;
+    //freeze testing
+    //this.deck = ["f", "f", "f", "f"];
   }
 
   //Fisher–Yates shuffle Algorithm
