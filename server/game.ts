@@ -40,7 +40,7 @@ export class Player {
 }
 
 export class GameAction {
-  private action: "draw" | "fold" | "use" | "shuffle" | "die" | "connect" | "end";
+  public action: "draw" | "fold" | "use" | "shuffle" | "die" | "connect" | "end";
   private actor: number;
   private card: string;
   private target: number;
@@ -142,6 +142,7 @@ export class Game {
 
     //player dies if the card drawn matches one they have, and is not an action card
     if (player.cards.includes(card) && !["f", "s", "d"].includes(card)) {
+      //player attempts to use a second chance
       if (player.second_chances > 0) {
         player.second_chances--;
         this.discard.push(card);
@@ -161,15 +162,14 @@ export class Game {
           console.log("moving", player.cards[0],"to discard");
           this.discard.push(player.cards.shift());
         }
-
-        //check if the round is over
-        const game_over: GameAction = this.check_round_over();
-        if (game_over) {
-          actions.push(game_over);
-        }
-        this.current_player = this.next_current();
-        console.log("its is now", this.current_player, "'s turn");
       }
+      //check if the round is over
+      const game_over: GameAction = this.check_round_over();
+      if (game_over) {
+        actions.push(game_over);
+      }
+      this.current_player = this.next_current();
+      console.log("its is now", this.current_player, "'s turn");
     }
     else {
       player.cards.push(card);
@@ -366,7 +366,7 @@ export class Game {
         highplayer = i;
       }
     }
-    if (this.player[highplayer].score > 200) {
+    if (this.players[highplayer].score > 200) {
       return new GameAction("end", highplayer, null, null);
     }
     return null;

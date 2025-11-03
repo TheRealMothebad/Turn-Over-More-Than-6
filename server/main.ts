@@ -284,8 +284,12 @@ function make_websocket(req: Request): Response | Promise<Response> {
       }
 
       if (result) {
-        for (let res of result) {
+        for (const res of result) {
           broadcast_game_action(connection.game, res);
+          if (res.action === "end") {
+            end_game(connection.game);
+            break;
+          }
         }
       }
     } catch (error) {
@@ -306,6 +310,34 @@ function make_websocket(req: Request): Response | Promise<Response> {
   return response;
 }
 
+async function end_game(game: Game) {
+  const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\..+/, "");
+  const safeGameName = game.name.replace(/[^a-zA-Z0-9]/g, '_');
+  const filename = `./game-archives/${safeGameName}-${game.uuid}-${timestamp}.json`;
+
+  try {
+    await Deno.mkdir("./game-archives", { recursive: true });
+    const game_json = JSON.stringify(game.serialize(), null, 2);
+    await Deno.writeTextFile(filename, game_json);
+    console.log(`Game ${game.uuid} saved to ${filename}`);
+  } catch (e) {
+    console.error(`Failed to save game ${game.uuid} to ${filename}:`, e);
+  }
+
+  for (const player_uuid of game.players_by_uuid.keys()) {
+    player_game_map.delete(player_uuid);
+
+    const player_conn = clients.get(player_uuid);
+    if (player_conn) {
+      // 1000 is normal closure
+      player_conn.client.close(1000, "Game finished");
+      clients.delete(player_uuid);
+    }
+  }
+
+  games.delete(game.uuid);
+  console.log(`Game ${game.uuid} has ended and been cleaned up.`);
+}
 
 function broadcast_game_action(game: Game, action: GameAction) {
   console.log("broadcast", action);

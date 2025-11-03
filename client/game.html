@@ -94,6 +94,8 @@
           }
         case "die":
           return `${actorName} died from drawing another ${fancy_name(action.card)}`
+        case "end":
+          return `Game has ended! ${actorName} won with a score of ${game.players[action.actor].score}!`
         default:
           return ``;
       }
