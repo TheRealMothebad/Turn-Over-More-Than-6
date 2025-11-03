@@ -41,7 +41,6 @@ const player_game_map: Map<string, Game> = new Map();
 const lobbys: Map<string, Lobby> = new Map();
 
 async function handler(req: Request): Promise<Response> {
-  console.log("Request received");
   const url = new URL(req.url);
 
   // Handle OPTIONS preflight requests
@@ -146,6 +145,7 @@ async function create_lobby(req: Request): Promise<Response> {
 async function join_lobby(req: Request): Promise<Response> {
   try {
     let { username, lobby_uuid } = await req.json();
+    console.log(username, "is attempting to join lobby", uuid);
 
     if (!username) {
       return new Response("Username is required.", { status: 400 });
@@ -193,6 +193,8 @@ async function start_game(req: Request): Promise<Response> {
   if (!uuid) {
     return new Response("Bad Request: Missing uuid", { status: 400 });
   }
+
+  console.log(uuid, "tried to start a game");
 
   let target_lobby: Lobby | undefined;
   let target_uuid: string | undefined;
@@ -351,6 +353,6 @@ function broadcast_game_action(game: Game, action: GameAction) {
   });
 }
 
-console.log("WebSocket server on ws://localhost:8080");
+console.log("tomt6 server on localhost:8080");
 await serve(handler, { port: 8080 });
 
