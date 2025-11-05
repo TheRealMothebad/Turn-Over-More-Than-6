@@ -3,42 +3,17 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { v4 } from "https://deno.land/std@0.224.0/uuid/mod.ts";
 import { Game, GameAction } from "./game.ts";
 
-export class Connection {
-  public client: WebSocket;
-  public uuid: string;
-  public game: Game;
+//map a socket connection to a player uuid 
+const connections: Map<WebSocket, string> = new Map();
+//map a player UUID to a socket
+const clients: Map<string, WebSocket> = new Map();
 
-  public constructor(ws, uuid) {
-    this.client = ws;
-    this.uuid = uuid
-    this.game = player_game_map.get(uuid);
-  }
-}
-
-export class Lobby {
-  public name: string;
-  public uuid: string;
-  //uuid, name
-  public players: [string, string][] = []; 
-  public host: string;
-
-  public constructor(host_uuid: string, host_name: string, lobby_uuid: string, lobby_name: string) {
-    this.name = lobby_name;
-    this.uuid = lobby_uuid;
-    this.host = host_uuid;
-    this.players.push([host_uuid, host_name]);
-  }
-}
-
-//map a connection to a player in a game
-const conn: Map<WebSocket, Connection> = new Map();
-const clients: Map<string, Connection> = new Map();
+//map a player UUID to a game
+const player_to_game: Map<string, Game> = new Map();
 
 //actively running games
+//game uuid to game object
 const games: Map<string, Game> = new Map();
-const player_game_map: Map<string, Game> = new Map();
-//pre-game lobbys
-const lobbys: Map<string, Lobby> = new Map();
 
 async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -54,24 +29,16 @@ async function handler(req: Request): Promise<Response> {
   }
 
   if (req.method === "POST" && url.pathname === "/create") {
-    return cors_response(await create_lobby(req));
+    return cors_response(await create_game(req));
   }
 
   if (req.method === "POST" && url.pathname === "/join") {
-    return cors_response(await join_lobby(req));
-  }
-
-  if (req.method === "GET" && url.pathname === "/game_status") {
-    return cors_response(game_status(url));
-  }
-
-  if (req.method === "POST" && url.pathname === "/start") {
-    return cors_response(await start_game(req));
+    return cors_response(await join_game(req));
   }
 
   //create a websocket connection
   //should only happen on the /game page to join a game
-  if (req.method === "GET" && url.pathname === "/game" && req.headers.get("upgrade") === "websocket") {
+  if(req.method === "GET" && url.pathname === "/game" && req.headers.get("upgrade") === "websocket") {
     console.log("websocket");
     return make_websocket(req);
   }
@@ -88,52 +55,43 @@ function cors_response(response: Response): Response {
 }
 
 function game_list(): Response | Promise<Response> {
-  const lobbyList = Array.from(lobbys.values()).map(lobby => ({
-    name: lobby.name,
-    uuid: lobby.uuid,
-    playerCount: lobby.players.length,
+  //TODO: somehow filter the game objects for one those where !game.started
+  const lobby_list = Array.from(games.values()).map(game => ({
+    name: game.name,
+    playerCount: game.players.length,
   }));
 
-  const gameList = Array.from(games.values()).map(game => ({
-    name: game.name, // Assuming Game class has a 'name' property
-    playerCount: game.players.length, // Assuming players_by_uuid is a Map
-  }));
-
-  const data = {
-    lobbies: lobbyList,
-    games: gameList,
-  };
-
-  return new Response(JSON.stringify(data), {
+  return new Response(JSON.stringify({ lobbies: lobby_list }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
 }
 
-async function create_lobby(req: Request): Promise<Response> {
-  console.log("attempting to create lobby");
+async function create_game(req: Request): Promise<Response> {
+  console.log("attempting to create game lobby");
   try {
-    let { username, lobby_name } = await req.json();
+    let {game_name, username} = await req.json();
 
     if (!username) {
       return new Response("Username is required.", { status: 400 });
     }
-    if (!lobby_name) {
-      return new Response("Lobby name is required.", { status: 400 });
+    if (!game_name) {
+      return new Response("Game name is required.", { status: 400 });
     }
     if (username.length > 25) {
       username = username.substring(0, 25);
     }
-    if (lobby_name.length > 15) {
-      lobby_name = lobby_name.substring(0, 15);
+    if (game_name.length > 15) {
+      game_name = game_name.substring(0, 15);
     }
 
-    const lobby_uuid = crypto.randomUUID();
+    const game_uuid = crypto.randomUUID();
     const host_uuid = crypto.randomUUID();
 
-    const new_lobby = new Lobby( host_uuid, username, lobby_uuid, lobby_name);
-    lobbys.set(lobby_uuid, new_lobby);
-    console.log("lobby", new_lobby.name, new_lobby.uuid, "created");
+    const game = new Game(game_uuid, game_name, host_uuid, username);
+    games.set(game_uuid, game);
+    player_to_game.set(host_uuid, game);
+    console.log("game", game.name, game.uuid, "created");
 
     return new Response(JSON.stringify({ host_uuid }), { status: 200 });
   } catch (error) {
@@ -142,32 +100,36 @@ async function create_lobby(req: Request): Promise<Response> {
   }
 }
 
-async function join_lobby(req: Request): Promise<Response> {
+async function join_game(req: Request): Promise<Response> {
   try {
-    let { username, lobby_uuid } = await req.json();
-    console.log(username, "is attempting to join lobby", lobby_uuid);
+    let {game_uuid, username} = await req.json();
+    console.log(username, "is attempting to join lobby", game_uuid);
 
+    if (!game_uuid) {
+      return new Response("Game UUID is required.", { status: 400 });
+    }
     if (!username) {
       return new Response("Username is required.", { status: 400 });
-    }
-    if (!lobby_uuid) {
-      return new Response("Lobby UUID is required.", { status: 400 });
     }
 
     if (username.length > 25) {
       username = username.substring(0, 25);
     }
 
-    const lobbyToJoin = lobbys.get(lobby_uuid);
+    const target_game = games.get(game_uuid);
 
-    if (!lobbyToJoin) {
-      return new Response("Lobby not found.", { status: 404 });
+    if (!target_game) {
+      return new Response("Game not found.", { status: 404 });
+    }
+    else if (target_game.started) {
+      return new Response("Game has already started.", { status: 404 });
     }
 
     const player_uuid = crypto.randomUUID();
-    lobbyToJoin.players.push([player_uuid, username]);
+    target_game.add_player(game_uuid, username);
+    player_to_game.set(player_uuid, target_game);
 
-    console.log(username, "joined lobby", lobbyToJoin.name, "and got uuid", player_uuid);
+    console.log(username, "joined lobby", target_game.name, "and got uuid", player_uuid);
 
     return new Response(JSON.stringify({ player_uuid }), { status: 200 });
   } catch (error) {
@@ -176,120 +138,109 @@ async function join_lobby(req: Request): Promise<Response> {
   }
 }
 
-function game_status(url: URL): Response {
-  const uuid = url.searchParams.get("uuid");
-
-  if (!uuid) {
-    return new Response("Bad Request: Missing uuid parameter", { status: 400 });
-  }
-
-  const game_started = player_game_map.has(uuid);
-
-  return new Response(JSON.stringify({ game_started }), { status: 200 });
-}
-
-async function start_game(req: Request): Promise<Response> {
-  const { uuid } = await req.json();
-  if (!uuid) {
-    return new Response("Bad Request: Missing uuid", { status: 400 });
-  }
-
-  console.log(uuid, "tried to start a game");
-
-  let target_lobby: Lobby | undefined;
-  let target_uuid: string | undefined;
-  for (const [lobby_uuid, lobby] of lobbys.entries()) {
-    if (lobby.host === uuid) {
-      target_lobby = lobby;
-      target_uuid = lobby_uuid;
-      break;
-    }
-  }
-
-  if (!target_lobby || !target_uuid) {
-    return new Response("Lobby not found or you are not the host.", { status: 404 });
-  }
-
-  const game = new Game(target_lobby.uuid, target_lobby.name, target_lobby.players);
-  games.set(target_lobby.uuid, game);
-
-  // Populate the player_game_map
-  for (const [player_uuid, _] of target_lobby.players) {
-    player_game_map.set(player_uuid, game);
-  }
-
-  lobbys.delete(target_uuid); // Remove the started lobby
-  return new Response("Game started", { status: 200 });
-}
-
 function make_websocket(req: Request): Response | Promise<Response> {
   const { socket, response } = Deno.upgradeWebSocket(req);
   console.log("socket made");
 
   socket.onopen = () => {
     //server should not send any messages on open, wait for client to send UUID
-    conn.set(socket, "");
+    connections.set(socket, null);
     console.log("connection opened");
   };
 
   socket.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
-      const connection = conn.get(socket);
+      const player_uuid = connections.get(socket);
 
-      // Handle initial UUID message
-      if (connection === "") {
+      //check if this is the first message on this socket (socket not yet mapped to a player UUID)
+      if (!player_uuid) {
+        //and make sure that it contains a player UUID
         if (msg.uuid && v4.validate(msg.uuid)) {
-          const newConnection = new Connection(socket, msg.uuid);
-          if (!newConnection.game) {
+          //check that there is a game with a player with that uuid
+          const game = player_to_game.get(msg.uuid);
+          if (!game) {
             console.log("no game found for uuid:", msg.uuid);
             socket.close();
             return;
           }
-          conn.set(socket, newConnection);
-          clients.set(msg.uuid, newConnection);
-          let p = newConnection.game.get_player(msg.uuid)
-          p.connected = true;
-          broadcast_game_action(newConnection.game, new GameAction("connect", p.order, null, 1));
-        } else {
+          //game found! update all the maps
+          connections.set(socket, msg.uuid);
+          clients.set(msg.uuid, socket);
+          const player = game.get_player(msg.uuid)
+          player.connected = true;
+          broadcast_game_action(game, new GameAction("connect", player.order, null, 1));
+        }
+        //first message was not a uuid so abort the socket bc malformed client
+        else {
           console.log("Invalid or missing UUID");
           socket.close();
         }
-        return; // Return early after handling initial message
+        //client ID by uuid completed, don't do anything else for this message
+        return;
       }
 
-      // Ensure connection is valid for subsequent messages
-      if (!connection || typeof connection === 'string') {
+      //TODO: make this code comment more descriptive/understandable
+      //ensure connection is valid for subsequent messages (weird?)
+      if (!player_uuid) {
         console.log("Invalid connection state");
         return;
       }
 
-      let result: [GameAction];
-      switch (msg.action) {
-        case "draw":
-          console.log("player", connection.game.get_player(connection.uuid).order, "requested to draw");
-          result = connection.game.player_draw(connection.uuid);
-          break;
-        case "fold":
-          console.log("player", connection.game.get_player(connection.uuid).order, "requested to fold");
-          result = connection.game.player_fold(connection.uuid);
-          break;
-        case "use":
-          console.log("player", connection.game.get_player(connection.uuid).order, "requested to use on", msg.target);
-          result = connection.game.player_use(connection.uuid, msg.target);
-          break;
-        case "state":
-          console.log("player", connection.game.get_player(connection.uuid).order, "requested gamestate");
-          const serializedGame = connection.game.serialize();
-          connection.client.send(JSON.stringify({ game: serializedGame }));
-          return; // Return early to avoid broadcast
+      //easy to reference :)
+      const game = player_to_game.get(player_uuid);
+
+      //check if the game is still in "lobby mode" (not yet started)
+      if (!game.started) {
+        let action: GameAction;
+        switch (msg.action) {
+          case "start":
+            action = game.start(player_uuid);
+            break;
+          case "kick":
+            console.log("kick tried");
+            //let host kick players (not themselves?)
+            //not yet implemented
+            break;
+          case "state":
+            //TODO: return lobby state (game state?)
+            socket.send(JSON.stringify({game: game.lobby_state(player_uuid)}));
+            break;
+        }
+        if (action) {
+          broadcast_game_action(game, action);
+        }
+        //only lobby actions allowed until game starts
+        return;
       }
 
-      if (result) {
-        for (const res of result) {
-          broadcast_game_action(connection.game, res);
-          if (res.action === "end") {
-            end_game(connection.game);
+      let actions: [GameAction];
+      switch (msg.action) {
+        case "draw":
+          console.log("player", game.get_player(player_uuid).order, "requested to draw");
+          actions = game.player_draw(player_uuid);
+          break;
+        case "fold":
+          console.log("player", game.get_player(player_uuid).order, "requested to fold");
+          actions = game.player_fold(player_uuid);
+          break;
+        case "use":
+          console.log("player", game.get_player(player_uuid).order, "requested to use on", msg.target);
+          actions = game.player_use(player_uuid, msg.target);
+          break;
+        case "state":
+          console.log("player", game.get_player(player_uuid).order, "requested gamestate");
+          clients.get(player_uuid).send(JSON.stringify({game: game.serialize(player_uuid)}));
+          //return early to avoid broadcast
+          return; 
+      }
+
+      if (actions) {
+        for (const action of actions) {
+          broadcast_game_action(game, action);
+          //whatever man, naming stuff is hard
+          if (action.action === "end") {
+            end_game(game);
             break;
           }
         }
@@ -300,14 +251,20 @@ function make_websocket(req: Request): Response | Promise<Response> {
   };
 
   socket.onclose = () => {
-    let connection: Connection | string = conn.get(socket);
-    if (typeof connection !== 'string' && connection.game) {
-      let p = connection.game.get_player(connection.uuid)
-      p.connected = false;
-      broadcast_game_action(connection.game, new GameAction("connect", p.order, null, 0));
+    let player_uuid = connections.get(socket);
+    //check if this socket was ever associated with a player
+    if (player_uuid) {
+      //delete all the map stuff and mark the player as disconnected
+      const game = player_to_game.get(player_uuid);
+      if (game) {
+        let player = game.get_player(player_uuid);
+        player.connected = false;
+        broadcast_game_action(game, new GameAction("connect", player.order, null, 0));
+      }
+      connections.delete(socket);
+      clients.delete(player_uuid);
     }
-    conn.delete(socket);
-  }
+  };
 
   return response;
 }
@@ -328,12 +285,11 @@ async function end_game(game: Game) {
 
   for (const player_uuid of game.players_by_uuid.keys()) {
     player_game_map.delete(player_uuid);
-
-    const player_conn = clients.get(player_uuid);
-    if (player_conn) {
-      // 1000 is normal closure
-      player_conn.client.close(1000, "Game finished");
+    let socket = clients.get(player_uuid);
+    if (socket) {
+      socket.close(1000, "Game Finished!");
       clients.delete(player_uuid);
+      connections.delete(socket);
     }
   }
 
@@ -343,12 +299,12 @@ async function end_game(game: Game) {
 
 function broadcast_game_action(game: Game, action: GameAction) {
   console.log("broadcast", action);
-  const message = JSON.stringify({"action": action, "game": game.serialize()});
 
   game.players_by_uuid.forEach(p => {
-    const player_conn = clients.get(p.uuid);
-    if (player_conn != null && player_conn.client.readyState === WebSocket.OPEN) {
-      player_conn.client.send(message);
+    const message = JSON.stringify({"action": action, "game": game.serialize(p.uuid)});
+    const socket = clients.get(p.uuid);
+    if (socket != null && socket.readyState === WebSocket.OPEN) {
+      socket.send(message);
     }
   });
 }

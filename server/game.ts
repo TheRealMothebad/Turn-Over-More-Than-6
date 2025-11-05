@@ -32,15 +32,20 @@ export class Player {
   score = 0;
   connected = false;
 
-  constructor(uuid: string, name: string, order: number) {
+  constructor(uuid: string, name: string) {
     this.uuid = uuid;
     this.name = name;
-    this.order = order;
+  }
+
+  serialize(): string {
+    let public_player_state = {...this};
+    delete public_player_state.uuid;
+    return public_player_state;
   }
 }
 
 export class GameAction {
-  public action: "draw" | "fold" | "use" | "shuffle" | "die" | "connect" | "end";
+  public action: "start" | "draw" | "fold" | "use" | "shuffle" | "die" | "connect" | "end";
   private actor: number;
   private card: string;
   private target: number;
@@ -56,6 +61,8 @@ export class GameAction {
 export class Game {
   public uuid: string;
   public name: string;
+  public started: boolean = false;
+  public host_uuid: string;
   private players: Player[] = [];
   public players_by_uuid: Map<string, Player> = new Map();
   private deck: string[] = [];
@@ -70,20 +77,30 @@ export class Game {
 
   private actions_log: GameAction[] = [];
 
-  public constructor(uuid, name, players: [string, string][]) {
-    this.uuid = uuid;
-    this.name = name;
-    players.forEach((player, index) => {
-      let p = new Player(player[0], player[1], index)
-      this.players.push(p);
-      this.players_by_uuid.set(player[0], p);
-    });
+  public constructor(game_uuid: string, game_name: string, host_uuid: string) {
+    this.uuid = game_uuid;
+    this.name = game_name;
+    this.host_uuid = host_uuid;
+    add_player(host_uuid, host_name);
+  }
 
+  add_player(uuid: string, name: string) {
+    const player = new Player(uuid, name);
+    const order = this.players.push(player);
+    player.order = order;
+    this.players_by_uuid.set(uuid, player);
+  }
+
+  start(player_uuid: string) {
+    if (player_uuid != this.host_uuid) {
+      return;
+    }
     this.build_deck();
     this.shuffle();
 
-    this.current_player = 0;
-    console.log(this.players);
+    console.log("starting game with players", this.players);
+    this.started = true;
+    return new GameAction("start", this.current_player, null, null);
     //console.log(this.deck);
   }
 
@@ -428,14 +445,26 @@ export class Game {
     }
   }
 
-  serialize() {
+  lobby_state(player_uuid: string) {
+    const public_lobby_state = {
+      players: this.players.map((p) => {return p.serialize()}),
+      you: this.players_by_uuid.get(player_uuid).order,
+      started: this.started,
+      host: this.players_by_uuid.get(this.host_uuid).order,
+    }
+    return public_lobby_state;
+  }
+
+  serialize(player_uuid: string) {
     const public_game_state = {
-      players: this.players,
-      players_by_uuid: this.players_by_uuid,
+      players: this.players.map((p) => {return p.serialize()}),
+      you: this.players_by_uuid.get(player_uuid).order,
       top_discard: this.discard.length > 0 ? this.discard[this.discard.length - 1] : null,
       current_player: this.current_player,
       forced_draws: this.forced_draws,
       round_number: this.round_number,
+      started: this.started,
+      host: this.players_by_uuid.get(this.host_uuid).order,
       actions_log: this.actions_log
     };
     return public_game_state;
