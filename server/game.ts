@@ -459,7 +459,7 @@ export class Game {
   serialize(player_uuid: string) {
     const public_game_state = {
       players: this.players.map((p) => {return p.serialize()}),
-      you: this.players_by_uuid.get(player_uuid).order,
+      you: player_uuid ? this.players_by_uuid.get(player_uuid).order : null,
       top_discard: this.discard.length > 0 ? this.discard[this.discard.length - 1] : null,
       current_player: this.current_player,
       forced_draws: this.forced_draws,
