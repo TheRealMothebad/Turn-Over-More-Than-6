@@ -14,7 +14,7 @@ console.log('Development environment detected, using localhost.');
 async function get_lobbies() {
   try {
     console.log("fetching lobbies");
-    const response = await fetch(`${baseUrl}/games`);
+    const response = await fetch(`${api_url}/games`);
     if (!response.ok) {
       document.getElementById("errors").innerHTML = "Failed to fetch game list.";
       return;
@@ -29,18 +29,15 @@ async function get_lobbies() {
       container.appendChild(lobbiesHeader);
       data.lobbies.forEach(lobby => {
         const div = document.createElement('div');
-        const radio = document.createElement('input');
-        radio.type = 'radio';
-        radio.name = 'game_selection';
-        radio.value = lobby.uuid;
-        radio.id = `lobby-${lobby.uuid}`;
+        const lobbyInfo = document.createElement('span');
+        lobbyInfo.textContent = `${lobby.name} (${lobby.playerCount} players) `;
 
-        const label = document.createElement('label');
-        label.htmlFor = radio.id;
-        label.textContent = ` ${lobby.name} (${lobby.playerCount} players)`;
+        const joinButton = document.createElement('button');
+        joinButton.textContent = 'Join';
+        joinButton.onclick = () => enter_lobby('join', lobby.uuid);
 
-        div.appendChild(radio);
-        div.appendChild(label);
+        div.appendChild(lobbyInfo);
+        div.appendChild(joinButton);
         container.appendChild(div);
       });
     }
@@ -55,7 +52,7 @@ async function get_lobbies() {
   }
 }
 
-function enter_lobby(action) {
+function enter_lobby(action, game_uuid = null) {
   const username = document.getElementById("username").value;
   if (!username) {
     document.getElementById("errors").innerHTML = "Please enter a username.";
@@ -71,19 +68,17 @@ function enter_lobby(action) {
       document.getElementById("errors").innerHTML = "Please enter a lobby name.";
       return;
     }
-    endpoint = `${baseUrl}/create`;
+    endpoint = `${api_url}/create`;
     body = JSON.stringify({
       game_name: game_name, 
       username: username
     });
   } else if (action === 'join') {
-    const selectedLobby = document.querySelector('input[name="game_selection"]:checked');
-    if (!selectedLobby) {
-      document.getElementById("errors").innerHTML = "Please select a lobby to join.";
+    if (!game_uuid) {
+      document.getElementById("errors").innerHTML = "Lobby UUID is missing.";
       return;
     }
-    const game_uuid = selectedLobby.value;
-    endpoint = `${baseUrl}/join`;
+    endpoint = `${api_url}/join`;
     body = JSON.stringify({
       game_uuid: game_uuid,
       username: username
@@ -114,7 +109,7 @@ function enter_lobby(action) {
       if (uuid) {
         localStorage.setItem("uuid", uuid);
         sessionStorage.setItem("uuid", uuid);
-        console.log("UUID set to", getParam("uuid") ,"in localStorage and sessionStorage.");
+        console.log("UUID set to", uuid ,"in localStorage and sessionStorage.");
         window.location.href = `game.html?uuid=${uuid}`;
       } else {
         console.error("UUID not found in server response.");

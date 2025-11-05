@@ -77,18 +77,19 @@ export class Game {
 
   private actions_log: GameAction[] = [];
 
-  public constructor(game_uuid: string, game_name: string, host_uuid: string) {
+  public constructor(game_uuid: string, game_name: string, host_uuid: string, host_name: string) {
     this.uuid = game_uuid;
     this.name = game_name;
     this.host_uuid = host_uuid;
-    add_player(host_uuid, host_name);
+    this.add_player(host_uuid, host_name);
   }
 
   add_player(uuid: string, name: string) {
     const player = new Player(uuid, name);
     const order = this.players.push(player);
-    player.order = order;
+    player.order = order - 1;
     this.players_by_uuid.set(uuid, player);
+    console.log("added", name, "to game", this.name);
   }
 
   start(player_uuid: string) {

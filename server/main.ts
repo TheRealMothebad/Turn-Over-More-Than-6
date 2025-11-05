@@ -55,9 +55,9 @@ function cors_response(response: Response): Response {
 }
 
 function game_list(): Response | Promise<Response> {
-  //TODO: somehow filter the game objects for one those where !game.started
   const lobby_list = Array.from(games.values()).map(game => ({
     name: game.name,
+    uuid: game.uuid,
     playerCount: game.players.length,
   }));
 
@@ -126,7 +126,7 @@ async function join_game(req: Request): Promise<Response> {
     }
 
     const player_uuid = crypto.randomUUID();
-    target_game.add_player(game_uuid, username);
+    target_game.add_player(player_uuid, username);
     player_to_game.set(player_uuid, target_game);
 
     console.log(username, "joined lobby", target_game.name, "and got uuid", player_uuid);
@@ -167,7 +167,9 @@ function make_websocket(req: Request): Response | Promise<Response> {
           //game found! update all the maps
           connections.set(socket, msg.uuid);
           clients.set(msg.uuid, socket);
-          const player = game.get_player(msg.uuid)
+          console.log(game);
+          const player = game.get_player(msg.uuid);
+          console.log(player, msg.uuid);
           player.connected = true;
           broadcast_game_action(game, new GameAction("connect", player.order, null, 1));
         }
@@ -284,7 +286,7 @@ async function end_game(game: Game) {
   }
 
   for (const player_uuid of game.players_by_uuid.keys()) {
-    player_game_map.delete(player_uuid);
+    player_to_game.delete(player_uuid);
     let socket = clients.get(player_uuid);
     if (socket) {
       socket.close(1000, "Game Finished!");

@@ -1,4 +1,6 @@
 
+const uuid = getParam("uuid");
+let your_tile_color = "purple";
 let socket;
 let socket_url = "wss://tomt6.umbriac.com/game";
 if (window.IS_DEV) {
@@ -23,15 +25,19 @@ socket.onmessage = (e) => {
 
   //check if this is a lobby
   if (parsed.game && !parsed.game.started) {
-    document.getElementById("welcomeMessage").textContent = `Welcome ${parsed.players[parsed.you].name}, waiting for game to start...`;
+    document.getElementById("welcomeMessage").textContent = `Welcome ${parsed.game.players[parsed.game.you].name}, waiting for game to start...`;
     const player_list = document.getElementById("player-list");
     //reset player list to blank so it can be repopulated
     player_list.innerHTML = "";
     parsed.game.players.forEach(p => {
+      console.log(p);
       const player_line = document.createElement("p")
-      player_line.textContent = `${p.connected ? "🔗" : "🔌"} ${p.name} ${parsed.host == p.order ? "👑" : ""}`
+      player_line.textContent = `${p.connected ? "🔗" : "🔌"} ${p.name} ${parsed.game.host == p.order ? "👑" : ""}`;
       player_list.appendChild(player_line);
     });
+    if (parsed.game.host == parsed.game.you) {
+      document.getElementById("start-game-button").style.display = "block";
+    }
     //only handle lobby stuff
     return;
   }
@@ -54,10 +60,9 @@ socket.onmessage = (e) => {
     }
   }
 
-  pretty_print(parsed.game, uuid);
+  pretty_print(parsed.game);
   //document.getElementById("not_pretty").textContent = JSON.stringify(parsed);
-}
-})();
+};
 
 function generate_action_message(action, game) {
   if (!action) {
@@ -68,7 +73,7 @@ function generate_action_message(action, game) {
 
   switch (action.action) {
     case "start":
-      return `The game has started. ${actorName} goes first"`;
+      return `The game has started. ${actorName} goes first`;
     case "draw":
       return `${actorName} drew the card ${fancy_name(action.card)}.`;
     case "fold":
@@ -117,6 +122,7 @@ function change_color(color) {
   if (isYouBox) {
     isYouBox.style.backgroundColor = color;
   }
+  your_tile_color = color;
 }
 
 function fancy_name(card) {
@@ -131,7 +137,7 @@ function fancy_name(card) {
   return card;
 }
 
-function pretty_print(game, clientUuid) {
+function pretty_print(game) {
   const playersContainer = document.getElementById("players-container");
   playersContainer.innerHTML = ""; // Clear previous content
 
@@ -152,9 +158,10 @@ function pretty_print(game, clientUuid) {
       nameHeader.classList.add("inactive-player");
     }
 
-    if (player.uuid === clientUuid) {
+    if (player.order === game.you) {
       nameText = "(You) " + nameText;
       playerContainer.classList.add("is-you");
+      playerContainer.style.backgroundColor = your_tile_color;
     }
     nameHeader.textContent = nameText;
     playerContainer.appendChild(nameHeader);
@@ -162,7 +169,6 @@ function pretty_print(game, clientUuid) {
     const attributesP = document.createElement("p");
     attributesP.innerHTML = `
           Cards: ${player.cards.map(fancy_name).join(", ")}<br>
-          Lost: ${player.lost}<br>
           Second Chances: ${player.second_chances}<br>
           Score: ${player.score}
         `;
@@ -170,16 +176,16 @@ function pretty_print(game, clientUuid) {
 
     const statusDiv = document.createElement("div");
     statusDiv.classList.add("player-status-icons");
+    if (player.connected) {
+      statusDiv.innerHTML += '<span title="Connected">🔗</span>';
+    } else {
+      statusDiv.innerHTML += '<span title="Disconnected">🔌</span>';
+    }
     if (player.frozen) {
       statusDiv.innerHTML += '<span title="Frozen">❄️</span>';
     }
     if (player.folded) {
       statusDiv.innerHTML += '<span title="Folded">🛑</span>';
-    }
-    if (player.connected) {
-      statusDiv.innerHTML += '<span title="Connected">🔗</span>';
-    } else {
-      statusDiv.innerHTML += '<span title="Disconnected">🔌</span>';
     }
     playerContainer.appendChild(statusDiv);
 
