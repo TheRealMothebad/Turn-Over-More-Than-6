@@ -19,6 +19,10 @@
 //
 //
 //crash pervention with uuids that are not associated with a game
+//bad behavior if last card of draw three is an actin card, block players from drawing if there is a special in anyones hand
+//
+//UI 
+//dead should be skull, turn off buttons that you don't have. Special message if round ends by player drawing 7, other stuff  
 
 export class Player {
   uuid: string;
@@ -126,6 +130,14 @@ export class Game {
     if (this.has_special(player) && this.forced_draws == null) {
       console.log("ERROR: Unplayed special");
       return;
+    }
+
+    //if someone else has a special card they must play it first
+    for (let p of this.players) {
+      if (p.order != player.order && this.has_special(p)) {
+        console.log(`ERROR: ${p.order} has an unplayed special`);
+        return;
+      }
     }
 
     //if nobody is being forced to draw, it has to be your turn to draw
@@ -384,7 +396,7 @@ export class Game {
         highplayer = i;
       }
     }
-    if (this.players[highplayer].score > 200) {
+    if (this.players[highplayer].score >= 200) {
       return new GameAction("end", highplayer, null, null);
     }
     return null;
