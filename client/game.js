@@ -242,10 +242,10 @@ function pretty_print(game) {
   const drawButton = document.getElementById("draw_button");
   const foldButton = document.getElementById("fold_button");
 
-  drawButton.disabled = true;
-  foldButton.disabled = true;
+  if (drawButton) drawButton.disabled = true;
+  if (foldButton) foldButton.disabled = true;
 
-  if (game.expected_action_player === game.you) {
+  if (game.expected_action_player === game.you && drawButton && foldButton) {
     if (game.expected_action === "draw_or_fold" || game.expected_action === "force_draw") {
       drawButton.disabled = false;
     }
@@ -340,8 +340,19 @@ Game.prototype.new_round_animation = function () {
 Game.prototype.game_over = function(winner_order) {
   console.log(game.players[winner_order].name, "won!");
   emmit_action_message(`Game has ended! ${game.players[winner_order].name} won with a score of ${game.players[winner_order].score}!`);
+  
+  document.getElementById("draw_button").style.display = "none";
+  document.getElementById("fold_button").style.display = "none";
+  
   let button_box = document.getElementById("controls");
-  button_box.innerHTML = `Game has ended, ${game.players[winner_order].name} has won! <a href="index.html">Play again</a>`
+  let gameOverDiv = document.getElementById("game-over-message");
+  if (!gameOverDiv) {
+    gameOverDiv = document.createElement("div");
+    gameOverDiv.id = "game-over-message";
+    button_box.appendChild(gameOverDiv);
+  }
+  
+  gameOverDiv.innerHTML = `Game has ended, ${game.players[winner_order].name} has won! <button type="button" onclick="window.location.href='index.html'">Play again</button>`;
   //do nothing
 }
 

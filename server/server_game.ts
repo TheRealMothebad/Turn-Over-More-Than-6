@@ -19,6 +19,7 @@ export class ServerGame extends Game {
     this.shuffle();
     //hardcoded deck for additional manual testing
     //this.deck = ["1", "2", "f", "3", "4", "5", "f", "6", "7", "8", "9"]
+    this.deck = ["190", "191", "192", "193"]
 
     console.log("starting game with players", this.players);
     this.expected_action = "draw_or_fold";
