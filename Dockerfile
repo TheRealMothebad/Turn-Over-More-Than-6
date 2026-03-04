@@ -3,8 +3,9 @@ FROM denoland/deno:1.40.2 AS builder
 
 WORKDIR /app
 
-# Copy only the server directory
+# Copy only the server directory and shared directory
 COPY server/ /app/server/
+COPY shared/ /app/shared/
 RUN rm /app/server/deno.lock
 
 # Cache dependencies
@@ -18,6 +19,7 @@ WORKDIR /app
 # Copy cached dependencies and source code from the builder stage
 COPY --from=builder /deno-dir/ /deno-dir/
 COPY --from=builder /app/server/ /app/server/
+COPY --from=builder /app/shared/ /app/shared/
 
 EXPOSE 8080
 
