@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # This script compiles the shared TypeScript code into JavaScript for the client.
 set -e
 

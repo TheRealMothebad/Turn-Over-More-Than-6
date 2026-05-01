@@ -1,5 +1,4 @@
-// @ts-ignore
-import {assertEquals} from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { assertEquals } from "@std/assert";
 import { ServerGame } from "./server_game.ts";
 import { Player } from "../shared/game.ts";
 
@@ -54,15 +53,27 @@ export class GameTestHarness {
         case "f":
           this.game.player_fold();
           break;
-        case "u":
-          let target_order_number = +action.slice(1);
-          if (target_order_number === undefined) {
+        case "u": {
+          const target_order_number = +action.slice(1);
+          if (isNaN(target_order_number)) {
             throw new Error("Target must be specified for 'use' action.");
           }
           this.game.player_use(target_order_number);
           break;
+        }
       }
     }
+  }
+
+  /**
+   * @param _order The player's order number.
+   */
+  draw(_order: number) {
+    this.game.player_draw();
+  }
+
+  getGameState() {
+    return this.game;
   }
 
   /**
@@ -74,7 +85,6 @@ export class GameTestHarness {
   }
 }
 
-// @ts-ignore
 Deno.test("One player draws one card", () => {
   const deck = ["1", "2", "3", "4", "5", "6", "7"];
   const harness = new GameTestHarness(1, deck);
@@ -87,30 +97,7 @@ Deno.test("One player draws one card", () => {
   assertEquals(game.expected_action_player, 0);
 });
 
-// @ts-ignore
 Deno.test("Two players, one draw", () => {
-  const deck = ["1", "2", "3", "4", "5", "6", "7"];
-  const harness = new GameTestHarness(2, deck);
-
-  // Player 0 (turn 0) draws "1"
-  harness.draw(0);
-
-  const game = harness.getGameState();
-  assertEquals(game.players[0].cards, ["1"]);
-  assertEquals(game.expected_action, "draw_or_fold");
-  assertEquals(game.current_turn, 1); // Turn moves to player 1
-  assertEquals(game.expected_action_player, 1);
-
-  // Player 1 (turn 1) draws "2"
-  harness.draw(1);
-  assertEquals(game.players[1].cards, ["2"]);
-  assertEquals(game.expected_action, "draw_or_fold");
-  assertEquals(game.current_turn, 0); // Turn moves back to player 0
-  assertEquals(game.expected_action_player, 0);
-});
-
-// @ts-ignore
-Deno.test("One player draws one card", () => {
   const deck = ["1", "2", "3", "4", "5", "6", "7"];
   const harness = new GameTestHarness(2, deck);
 

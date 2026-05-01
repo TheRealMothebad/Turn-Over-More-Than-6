@@ -1,9 +1,5 @@
-// @ts-ignore
-import { serve } from "@std/http/server";
-// @ts-ignore
-import { v4 } from "@std/uuid";
+import { validate } from "@std/uuid";
 import { ServerGame } from "./server_game.ts";
-import { Player } from "../shared/game.ts";
 
 //map a socket connection to a player UUID
 const connections: Map<WebSocket, string|null> = new Map();
@@ -164,9 +160,9 @@ function make_websocket(req: Request): Response | Promise<Response> {
       //check if this is the first message on this socket (socket not yet mapped to a player UUID)
       if (!player_uuid) {
         //and make sure that it contains a player UUID
-        if (v4.validate(msg)) {
+        if (validate(msg)) {
           //check that there is a game with a player with that uuid
-          const game: ServerGame = player_to_game.get(msg);
+          const game = player_to_game.get(msg);
           if (!game) {
             console.log("no game found for uuid:", msg);
             socket.close();
@@ -177,6 +173,11 @@ function make_websocket(req: Request): Response | Promise<Response> {
           clients.set(msg, socket);
           console.log(game);
           const player = game.uuid_to_player.get(msg);
+          if (!player) {
+            console.log("no player found for uuid:", msg);
+            socket.close();
+            return;
+          }
           console.log(player, msg);
           player.connected = true;
           socket.send(game.serialize(player.order));
@@ -199,9 +200,14 @@ function make_websocket(req: Request): Response | Promise<Response> {
       }
 
       //easy to reference :)
-      const game: ServerGame = player_to_game.get(player_uuid);
-      const player: Player = game.uuid_to_player.get(player_uuid);
+      const game = player_to_game.get(player_uuid);
+      const player = game?.uuid_to_player.get(player_uuid);
       let actions: string[] = [];
+
+      if (!game || !player) {
+        socket.close();
+        return;
+      }
 
       //client is requesting the game state
       if (msg == "r") {
@@ -248,6 +254,9 @@ function make_websocket(req: Request): Response | Promise<Response> {
         else if (game.expected_action == "use" && !isNaN(+msg) && +msg < game.players.length) {
           actions.push(...game.player_use(+msg));
         }
+        else {
+          console.log("Unexpected message:", msg, "from client", player);
+        }
       }
       console.log("actions is", actions);
 
@@ -264,15 +273,17 @@ function make_websocket(req: Request): Response | Promise<Response> {
   };
 
   socket.onclose = () => {
-    let player_uuid = connections.get(socket);
+    const player_uuid = connections.get(socket);
     //check if this socket was ever associated with a player
     if (player_uuid) {
       //delete all the map stuff and mark the player as disconnected
       const game = player_to_game.get(player_uuid);
       if (game) {
-        let player: Player = game.uuid_to_player.get(player_uuid);
-        player.connected = false;
-        broadcast_action(game, "l" + player.order);
+        const player = game.uuid_to_player.get(player_uuid);
+        if (player) {
+          player.connected = false;
+          broadcast_action(game, "l" + player.order);
+        }
       }
       connections.delete(socket);
       clients.delete(player_uuid);
@@ -301,7 +312,7 @@ async function end_game(game: ServerGame) {
   for (const player_uuid of game.uuid_to_player.keys()) {
     console.log("closing sockets");
     player_to_game.delete(player_uuid);
-    let socket = clients.get(player_uuid);
+    const socket = clients.get(player_uuid);
     if (socket) {
       socket.close(1000, "Game Finished!");
       clients.delete(player_uuid);
@@ -323,5 +334,5 @@ function broadcast_action(game: ServerGame, action: string) {
 }
 
 console.log("tomt6 server on localhost:8080");
-await serve(handler, { port: 8080 });
+Deno.serve({ port: 8080 }, handler);
 

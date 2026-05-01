@@ -1,18 +1,17 @@
 # Stage 1: Build and cache dependencies
-FROM denoland/deno:1.40.2 AS builder
+FROM denoland/deno:2.1.0 AS builder
 
 WORKDIR /app
 
 # Copy only the server directory and shared directory
 COPY server/ /app/server/
 COPY shared/ /app/shared/
-RUN rm /app/server/deno.lock
 
-# Cache dependencies
-RUN deno cache server/main.ts
+# Cache dependencies using the config file in the server directory
+RUN deno cache --config server/deno.json server/main.ts
 
 # Stage 2: Create the final small image
-FROM denoland/deno:distroless-1.40.2
+FROM denoland/deno:distroless-2.1.0
 
 WORKDIR /app
 
@@ -24,4 +23,4 @@ COPY --from=builder /app/shared/ /app/shared/
 EXPOSE 8080
 
 # Set the command to run the server
-CMD ["run", "--allow-net", "--allow-write", "server/main.ts"]
+CMD ["run", "--allow-net", "--allow-write", "--config", "server/deno.json", "server/main.ts"]

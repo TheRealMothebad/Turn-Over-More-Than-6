@@ -77,6 +77,15 @@ export class Game {
     this.expected_action_player = this.host_order;
   }
 
+  start(): string {
+    return "";
+  }
+
+  seven_cards_animation(player: Player) {}
+  death_animation(player: Player, card: string) {}
+  new_round_animation() {}
+  game_over(winner_order: number) {}
+
   protected add_player(name: string): Player {
     const player = new Player(name, this.players.length);
     this.players[player.order] = player;
@@ -103,11 +112,13 @@ export class Game {
       }
     }
 
-    //no matter what, it becomes the next available player's turn
+    //if this is anything other than a feeeze, it becomes the next available player's turn
     //note that this happens after the round ends (if it does)
     //so all previously dead players are already revived and eligible
     //It also happens before any drawn action card is played!
-    this.current_turn = this.next_in_turn_order();
+    if (card != "f") {
+      this.current_turn = this.next_in_turn_order();
+    }
     console.log("current_turn has moved to", this.players[this.current_turn].order);
 
     //if anything other than an action card was drawn then the next player to act is the player whose turn it is
@@ -154,8 +165,8 @@ export class Game {
 
   queue_unplayed_action_cards() {
     while (this.forced_draws.length > 0) {
-      let top_forced_draw: [number, number, number] = this.forced_draws.pop();
-      if (this.has_action_card(this.players[top_forced_draw[2]])) {
+      let top_forced_draw = this.forced_draws.pop()!;
+      if (this.has_action_card(this.players[top_forced_draw[2]]) && is_active(this.players[top_forced_draw[2]])) {
         this.expected_action_player = top_forced_draw[2];
         this.expected_action = "use";
         return;
@@ -179,6 +190,7 @@ export class Game {
     }
     catch (e) {
       console.log(e);
+      return "e";
     }
   }
 
@@ -187,7 +199,7 @@ export class Game {
     const target = this.players[target_order];
 
     //find the action card that the player drew first (in case multiple from draw three)
-    let action_card: string;
+    let action_card = "";
     for (let card of player.cards) {
       if (["f", "s", "d"].includes(card)) {
         action_card = card;
@@ -272,7 +284,7 @@ export class Game {
 
     //move their cards to the discard
     while (player.cards.length > 0) {
-      this.discard(player.cards.shift());
+      this.discard(player.cards.shift()!);
     }
   }
 
@@ -342,9 +354,11 @@ export class Game {
 
       if (this.check_handle_game_over()) {
         //trigger for the client's game over animation
-        console.log("Game is over", this.players[this.winner_order].name, "won");
-        // @ts-ignore
-        this.game_over(this.winner_order);
+        if (this.winner_order !== null) {
+          console.log("Game is over", this.players[this.winner_order].name, "won");
+          // @ts-ignore
+          this.game_over(this.winner_order);
+        }
         console.log("after game over");
       }
       else {
@@ -389,7 +403,7 @@ export class Game {
     for (let p of this.players) {
       //move the cards to the discard
       while (p.cards.length > 0) {
-        this.discard(p.cards.shift());
+        this.discard(p.cards.shift()!);
       }
       p.second_chances = 0;
       p.lost = false;
