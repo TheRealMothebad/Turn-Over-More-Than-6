@@ -202,7 +202,7 @@ function make_websocket(req: Request): Response | Promise<Response> {
       //easy to reference :)
       const game = player_to_game.get(player_uuid);
       const player = game?.uuid_to_player.get(player_uuid);
-      let actions: string[] = [];
+      const actions: string[] = [];
 
       if (!game || !player) {
         socket.close();

@@ -1,3 +1,5 @@
 client/dev.js
 server/game-archives/*
 tomt6.tar
+vps_ipaddr
+portainer_secret

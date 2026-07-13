@@ -1,5 +1,5 @@
 # Stage 1: Build and cache dependencies
-FROM denoland/deno:2.1.0 AS builder
+FROM denoland/deno:latest AS builder
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ COPY shared/ /app/shared/
 RUN deno cache --config server/deno.json server/main.ts
 
 # Stage 2: Create the final small image
-FROM denoland/deno:distroless-2.1.0
+FROM denoland/deno:distroless
 
 WORKDIR /app
 
