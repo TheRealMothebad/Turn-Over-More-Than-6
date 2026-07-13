@@ -117,3 +117,79 @@ Deno.test("Two players, one draw", () => {
   assertEquals(game.current_turn, 0); // Turn moves back to player 0
   assertEquals(game.expected_action_player, 0);
 });
+
+Deno.test("Self-freeze passes turn even with extra action cards in hand", () => {
+  const deck = ["1", "2", "3"];
+  const harness = new GameTestHarness(2, deck);
+  const game = harness.game;
+
+  game.players[0].cards = ["f", "s"];
+  game.expected_action = "use";
+  game.expected_action_player = 0;
+  game.current_turn = 0;
+
+  game.player_use(0);
+
+  assertEquals(game.players[0].cards, ["s"]);
+  assertEquals(game.players[0].frozen, true);
+  assertEquals(game.current_turn, 1);
+  assertEquals(game.expected_action, "draw_or_fold");
+  assertEquals(game.expected_action_player, 1);
+});
+
+Deno.test("Three players preserve turn order through freeze and draw-three chain", () => {
+  const deck = ["f", "d", "f", "1", "2", "3"];
+  const harness = new GameTestHarness(3, deck);
+  const game = harness.game;
+
+  // Player 0 draws freeze and immediately uses it on player 2.
+  harness.draw(0);
+  assertEquals(game.players[0].cards, ["f"]);
+  assertEquals(game.expected_action, "use");
+  assertEquals(game.current_turn, 0);
+  assertEquals(game.expected_action_player, 0);
+
+  game.player_use(2);
+  assertEquals(game.players[2].frozen, true);
+  assertEquals(game.current_turn, 1);
+  assertEquals(game.expected_action, "draw_or_fold");
+  assertEquals(game.expected_action_player, 1);
+
+  // Player 1 draws draw-three and uses it on player 0.
+  harness.draw(1);
+  assertEquals(game.players[1].cards, ["d"]);
+  assertEquals(game.expected_action, "use");
+  assertEquals(game.current_turn, 0);
+  assertEquals(game.expected_action_player, 1);
+
+  game.player_use(0);
+  assertEquals(game.expected_action, "force_draw");
+  assertEquals(game.current_turn, 0);
+  assertEquals(game.expected_action_player, 0);
+
+  // Player 0 resolves the forced draws, drawing another freeze.
+  harness.draw(0);
+  assertEquals(game.players[0].cards, ["f"]);
+  assertEquals(game.expected_action, "force_draw");
+  assertEquals(game.current_turn, 0);
+  assertEquals(game.expected_action_player, 0);
+
+  harness.draw(0);
+  assertEquals(game.players[0].cards, ["f", "1"]);
+  assertEquals(game.expected_action, "force_draw");
+  assertEquals(game.current_turn, 0);
+  assertEquals(game.expected_action_player, 0);
+
+  harness.draw(0);
+  assertEquals(game.players[0].cards, ["f", "1", "2"]);
+  assertEquals(game.expected_action, "use");
+  assertEquals(game.current_turn, 0);
+  assertEquals(game.expected_action_player, 0);
+
+  // The chained freeze should still hand play to player 1, not skip them.
+  game.player_use(2);
+  assertEquals(game.players[2].frozen, true);
+  assertEquals(game.current_turn, 1);
+  assertEquals(game.expected_action, "draw_or_fold");
+  assertEquals(game.expected_action_player, 1);
+});
