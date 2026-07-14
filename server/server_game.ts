@@ -20,7 +20,7 @@ export class ServerGame extends Game {
     //hardcoded deck for additional manual testing
     //this.deck = ["1", "2", "f", "3", "4", "5", "f", "6", "7", "8", "9"]
     //this.deck = ["190", "191", "192", "193"]
-    this.deck = ["f", "d", "f", "1", "2", "3"];
+    //this.deck = ["f", "d", "f", "1", "2", "3"];
 
 
     console.log("starting game with players", this.players);
