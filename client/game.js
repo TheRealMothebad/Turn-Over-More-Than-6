@@ -32,9 +32,45 @@ const fold_button = $("fold_button");
 const valid_cards = new Set(Game.build_deck());
 const DECK_SIZE = Game.build_deck().length;
 const reduced_motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-//overall animation speed, change the 1.35 to taste (bigger is faster).
-//game.html?speed=2 multiplies it for one visit.
-const ANIMATION_SPEED = (parseFloat(params.get("speed")) || 1) * 1.35;
+//the "Normal" animation speed, change the 1.35 to taste (bigger is faster).
+//the player's own speed setting and game.html?speed=2 both multiply it.
+const BASE_ANIMATION_SPEED = (parseFloat(params.get("speed")) || 1) * 1.35;
+
+// =====================================================================
+// Personal settings (waiting room), saved in this browser only
+// =====================================================================
+
+const settings = { speed: 1, shortcuts: true };
+try {
+  Object.assign(settings, JSON.parse(localStorage.getItem("tomt6_settings") || "{}"));
+} catch (e) {}
+
+function save_settings() {
+  try {
+    localStorage.setItem("tomt6_settings", JSON.stringify(settings));
+  } catch (e) {}
+  render_settings();
+}
+
+function render_settings() {
+  for (const option of $("speed-setting").children) {
+    option.setAttribute("aria-checked", String(+option.dataset.value === settings.speed));
+  }
+  $("shortcuts-setting").checked = !!settings.shortcuts;
+}
+
+$("speed-setting").addEventListener("click", (e) => {
+  const option = e.target.closest("button");
+  if (option) {
+    settings.speed = +option.dataset.value;
+    save_settings();
+  }
+});
+$("shortcuts-setting").addEventListener("change", (e) => {
+  settings.shortcuts = e.target.checked;
+  save_settings();
+});
+render_settings();
 
 // =====================================================================
 // Local game replica
@@ -364,9 +400,9 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   const key = e.key.toLowerCase();
-  if (key === "d") {
+  if (key === "d" && settings.shortcuts) {
     draw();
-  } else if (key === "f") {
+  } else if (key === "f" && settings.shortcuts) {
     fold();
   } else if (key === "enter" || key === " ") {
     const area = document.activeElement && document.activeElement.closest(".area.targetable");
@@ -882,7 +918,7 @@ function T(ms) {
   if (queue.length >= 4) speed = 0.35;
   else if (queue.length >= 2) speed = 0.6;
   if (reduced_motion.matches) speed *= 0.4;
-  return Math.max(1, ms * speed / ANIMATION_SPEED);
+  return Math.max(1, ms * speed / (BASE_ANIMATION_SPEED * (settings.speed || 1)));
 }
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));

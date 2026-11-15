@@ -75,6 +75,39 @@ button { font: inherit; color: inherit; cursor: pointer; }
   color: var(--gold-ink);
 }
 
+#settings { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+#settings h3 { margin-bottom: 10px; }
+
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-bottom: 10px;
+}
+.setting-name small { display: block; color: var(--ink-dim); font-size: 0.78rem; }
+.setting input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--gold); }
+.setting-note { margin: 0; font-size: 0.78rem; color: var(--ink-dim); }
+
+/* a row of choices where exactly one is selected */
+.segmented {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.segmented button {
+  border: 0;
+  background: transparent;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  color: var(--ink-dim);
+}
+.segmented button + button { border-left: 1px solid var(--line); }
+.segmented button[aria-checked="true"] { background: var(--gold); color: var(--gold-ink); font-weight: 800; }
+.segmented button:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+
 #errors { color: var(--bad); margin: 10px 0 0; }
 #errors:empty { display: none; }
 #errors a { color: var(--ink); }

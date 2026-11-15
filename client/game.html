@@ -18,6 +18,25 @@
       </div>
       <button type="button" onclick="start_game()" id="start-game-button" hidden>Start Game</button>
       <p id="errors"></p>
+
+      <!-- personal settings, saved in this browser. they do not affect the other players -->
+      <div id="settings">
+        <h3>Your settings</h3>
+        <div class="setting">
+          <span class="setting-name" id="speed-label">Animation speed</span>
+          <div class="segmented" id="speed-setting" role="radiogroup" aria-labelledby="speed-label">
+            <button type="button" role="radio" data-value="0.7">Relaxed</button>
+            <button type="button" role="radio" data-value="1">Normal</button>
+            <button type="button" role="radio" data-value="1.5">Fast</button>
+            <button type="button" role="radio" data-value="2.5">Very fast</button>
+          </div>
+        </div>
+        <label class="setting">
+          <span class="setting-name">Keyboard shortcuts <small>D to draw, F to fold</small></span>
+          <input type="checkbox" id="shortcuts-setting">
+        </label>
+        <p class="setting-note">Only changes your own screen.</p>
+      </div>
     </div>
   </div>
 
