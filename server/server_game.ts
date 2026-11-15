@@ -107,6 +107,9 @@ export class ServerGame extends Game {
       expected_action: this.expected_action,
       expected_action_player: this.expected_action_player,
       discard_top: this.discard_pile.length > 0 ? this.discard_pile[this.discard_pile.length - 1] : null,
+      //pile sizes so the client can draw the deck and discard pile accurately
+      deck_count: this.deck ? this.deck.length - this.top_card_index : null,
+      discard_count: this.discard_pile.length,
       current_turn: this.current_turn,
       forced_draws: this.forced_draws,
       round_number: this.round_number,
