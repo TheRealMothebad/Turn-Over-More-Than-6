@@ -244,7 +244,7 @@ function make_websocket(req: Request): Response | Promise<Response> {
       }
       //game is active!
       else {
-        if (msg == "d" && game.expected_action === "draw_or_fold" || game.expected_action === "force_draw") {
+        if (msg == "d" && (game.expected_action === "draw_or_fold" || game.expected_action === "force_draw")) {
           actions.push(...game.player_draw());
         }
         else if (msg == "f" && game.expected_action == "draw_or_fold") {

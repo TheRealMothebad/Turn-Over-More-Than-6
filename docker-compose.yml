@@ -1,0 +1,31 @@
+# How the server container runs on the VPS.
+#
+# This is a record, not part of the deploy: deploy.sh swaps the image by asking Portainer to recreate the
+# existing container, which carries these settings forward on its own. This file exists so the container
+# can be rebuilt from scratch if it is ever lost:
+#
+#   docker compose up -d        (on the VPS, after the image has been loaded)
+#
+# Written from the live container's configuration on 2026-11-15.
+name: tomt6_stack
+
+services:
+  app:
+    image: turn-over-more-than-6:latest
+    container_name: turn-over-more-than-6
+    restart: always
+    # runs as root so it can write into the bind-mounted archive folder
+    user: "0"
+    ports:
+      - "8080:8080"
+    volumes:
+      # finished games are saved here, on the VPS's own disk, so they survive container swaps
+      - /home/root/tomt6-archives:/app/game-archives
+    networks:
+      - default
+      # shared with nginx proxy manager, which forwards tomt6-api.umbriac.com to this container
+      - proxy
+
+networks:
+  proxy:
+    external: true
