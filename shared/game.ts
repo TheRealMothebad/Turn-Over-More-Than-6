@@ -112,13 +112,12 @@ export class Game {
       }
     }
 
-    //if this is anything other than a feeeze, it becomes the next available player's turn
+    //no matter what was drawn, it becomes the next available player's turn
     //note that this happens after the round ends (if it does)
     //so all previously dead players are already revived and eligible
     //It also happens before any drawn action card is played!
-    if (card != "f") {
-      this.current_turn = this.next_in_turn_order();
-    }
+    //if that card ends up freezing the player whose turn it now is, resume_play() moves the turn along again
+    this.current_turn = this.next_in_turn_order();
     console.log("current_turn has moved to", this.players[this.current_turn].order);
 
     //if anything other than an action card was drawn then the next player to act is the player whose turn it is
@@ -134,19 +133,30 @@ export class Game {
   force_draw(card: string) {
     const player = this.players[this.expected_action_player];
 
-    //check if a player would die from this draw
+    //check if this draw is a duplicate
+    const round_before = this.round_number;
     if (this.check_handle_dead(player, card)) {
-      this.queue_unplayed_action_cards();
-      return;
+      //their death ended the round (which also threw away any forced draws that were left)
+      if (this.round_number != round_before) {
+        this.resume_play();
+        return;
+      }
+      //they died, so their remaining forced draws are cancelled
+      if (player.lost) {
+        this.queue_unplayed_action_cards();
+        return;
+      }
+      //otherwise a second chance saved them. the duplicate is discarded but it still
+      //counts as one of their forced draws, and the rest of them still have to happen
     }
-
-    player.cards.push(card);
+    else {
+      player.cards.push(card);
+    }
     //decrement the number of forced draws left
     this.forced_draws[this.forced_draws.length - 1][1]--;
 
     if (this.check_handle_round_over()) {
-      this.expected_action_player = this.current_turn;
-      this.expected_action = "draw_or_fold"
+      this.resume_play();
       return;
     }
 
@@ -163,6 +173,9 @@ export class Game {
     }
   }
 
+  //called whenever a player is done with their forced draws and their action cards.
+  //works back through the players who caused those forced draws, because they might
+  //still be holding action cards of their own that have to be played before normal play resumes
   queue_unplayed_action_cards() {
     while (this.forced_draws.length > 0) {
       let top_forced_draw = this.forced_draws.pop()!;
@@ -173,6 +186,16 @@ export class Game {
       }
     }
 
+    this.resume_play();
+  }
+
+  //go back to normal play (draw or fold) with the player whose turn it is.
+  //that player might have been frozen or killed by action cards since the turn moved to them,
+  //in which case the turn moves along to the next player who can still play
+  resume_play() {
+    if (!this.active(this.current_turn)) {
+      this.current_turn = this.next_in_turn_order();
+    }
     this.expected_action_player = this.current_turn;
     this.expected_action = "draw_or_fold";
   }
@@ -197,7 +220,6 @@ export class Game {
   use(target_order: number): string {
     const player = this.players[this.expected_action_player];
     const target = this.players[target_order];
-    const self_freeze = target_order == player.order;
 
     //find the action card that the player drew first (in case multiple from draw three)
     let action_card = "";
@@ -225,9 +247,13 @@ export class Game {
         target.frozen = true;
         console.log(target.name, "is frozen");
         //this is the only way that the round could end during use, so check it here
-        //more spaghetti to get the correct next player in the turn order bc freeze can change that
-        this.check_handle_round_over()
-        this.current_turn = this.next_in_turn_order()
+        if (this.check_handle_round_over()) {
+          //like every other way a round can end, the next round starts with the player after the one who ended it
+          this.current_turn = player.order;
+          this.current_turn = this.next_in_turn_order();
+        }
+        //if the round goes on, the turn does not move here. it already moved when the freeze was drawn
+        //(or before the forced draws started), and resume_play() skips the frozen player if it is now their turn
         break;
       case "s":
         target.second_chances++;
@@ -241,11 +267,11 @@ export class Game {
         break;
     }
 
-    //if forced draws do not need to happen and there are no more action cards for this player to play
-    if (action_card != "d" && (!this.has_action_card(player) || self_freeze)) {
-      //this.current_turn = this.next_in_turn_order();
-      this.expected_action_player = this.current_turn;
-      this.expected_action = "draw_or_fold";
+    //if forced draws do not need to happen and this player is done playing action cards
+    //(they have none left, or they froze themself and can't play the rest)
+    if (action_card != "d" && (!this.has_action_card(player) || !this.active(player.order))) {
+      //give anyone further up a draw three chain the chance to play their leftover action cards
+      this.queue_unplayed_action_cards();
     }
 
 
@@ -293,10 +319,15 @@ export class Game {
     console.log("finding next turn player");
     let next_player: number = this.current_turn;
 
-    //iterate through players till an alive one is found (guaranteed because the round has not ended)
-    do {
+    //iterate through players till an alive one is found
+    //this should be guaranteed because the round has not ended, but only go around the table once
+    //so that a mistake elsewhere can never turn into an infinite loop
+    for (let i = 0; i < this.players.length; i++) {
       next_player = (next_player + 1) % this.players.length;
-    } while (!this.active(next_player));
+      if (this.active(next_player)) {
+        break;
+      }
+    }
 
     console.log(next_player, "should go next");
     return next_player;

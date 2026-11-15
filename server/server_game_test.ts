@@ -143,10 +143,11 @@ Deno.test("Three players preserve turn order through freeze and draw-three chain
   const game = harness.game;
 
   // Player 0 draws freeze and immediately uses it on player 2.
+  // The turn moves on as soon as the card is drawn, before it is played.
   harness.draw(0);
   assertEquals(game.players[0].cards, ["f"]);
   assertEquals(game.expected_action, "use");
-  assertEquals(game.current_turn, 0);
+  assertEquals(game.current_turn, 1);
   assertEquals(game.expected_action_player, 0);
 
   game.player_use(2);
@@ -186,10 +187,176 @@ Deno.test("Three players preserve turn order through freeze and draw-three chain
   assertEquals(game.current_turn, 0);
   assertEquals(game.expected_action_player, 0);
 
-  // The chained freeze should still hand play to player 1, not skip them.
+  // Player 2 is already frozen, so they are not a valid target any more.
+  assertEquals(game.player_use(2), []);
+  assertEquals(game.expected_action, "use");
+
+  // Player 0 freezes player 1. It was player 0's turn next (after player 1's draw three),
+  // and it still is: the forced draws and the freeze do not use up their own turn.
+  game.player_use(1);
+  assertEquals(game.players[1].frozen, true);
+  assertEquals(game.current_turn, 0);
+  assertEquals(game.expected_action, "draw_or_fold");
+  assertEquals(game.expected_action_player, 0);
+});
+
+Deno.test("Busting on a draw three does not give the busted player the turn", () => {
+  const deck = ["d", "5", "1", "2"];
+  const harness = new GameTestHarness(3, deck);
+  const game = harness.game;
+  game.players[1].cards = ["5"];
+
+  // Player 0 draws draw-three and plays it on player 1, who is next in turn order.
+  harness.draw(0);
+  assertEquals(game.current_turn, 1);
+  game.player_use(1);
+  assertEquals(game.expected_action, "force_draw");
+  assertEquals(game.expected_action_player, 1);
+
+  // Player 1 draws a second 5 and busts. The turn must pass them by.
+  harness.draw(1);
+  assertEquals(game.players[1].lost, true);
+  assertEquals(game.forced_draws, []);
+  assertEquals(game.expected_action, "draw_or_fold");
+  assertEquals(game.current_turn, 2);
+  assertEquals(game.expected_action_player, 2);
+});
+
+Deno.test("A freeze drawn during forced draws does not skip the next player", () => {
+  const deck = ["d", "f", "1", "2", "3"];
+  const harness = new GameTestHarness(3, deck);
+  const game = harness.game;
+
+  // Player 0 draws draw-three (the turn moves to player 1) and plays it on player 2.
+  harness.draw(0);
+  game.player_use(2);
+  harness.runActions(["d", "d", "d"]);
+  assertEquals(game.players[2].cards, ["f", "1", "2"]);
+  assertEquals(game.expected_action, "use");
+  assertEquals(game.expected_action_player, 2);
+
+  // Player 2 freezes player 0. Player 1 was next and must still be next.
+  game.player_use(0);
+  assertEquals(game.players[0].frozen, true);
+  assertEquals(game.expected_action, "draw_or_fold");
+  assertEquals(game.current_turn, 1);
+  assertEquals(game.expected_action_player, 1);
+});
+
+Deno.test("A freeze drawn during forced draws skips the next player only if it froze them", () => {
+  const deck = ["d", "f", "1", "2", "3"];
+  const harness = new GameTestHarness(3, deck);
+  const game = harness.game;
+
+  harness.draw(0);
+  game.player_use(2);
+  harness.runActions(["d", "d", "d"]);
+
+  // Player 2 freezes player 1, whose turn it would have been. Play carries on with player 2.
+  game.player_use(1);
+  assertEquals(game.players[1].frozen, true);
+  assertEquals(game.expected_action, "draw_or_fold");
+  assertEquals(game.current_turn, 2);
+  assertEquals(game.expected_action_player, 2);
+});
+
+Deno.test("Leftover action cards are played after a draw-three chain", () => {
+  const deck = ["d", "d", "f", "1", "s", "2", "3", "4"];
+  const harness = new GameTestHarness(3, deck);
+  const game = harness.game;
+
+  // Player 0 plays draw-three on player 1, who draws another draw-three and a freeze.
+  harness.draw(0);
+  game.player_use(1);
+  harness.runActions(["d", "d", "d"]);
+  assertEquals(game.players[1].cards, ["d", "f", "1"]);
+  assertEquals(game.expected_action, "use");
+  assertEquals(game.expected_action_player, 1);
+
+  // Player 1 plays their draw-three on player 2, who draws a second chance.
+  game.player_use(2);
+  harness.runActions(["d", "d", "d"]);
+  assertEquals(game.players[2].cards, ["s", "2", "3"]);
+  assertEquals(game.expected_action, "use");
+  assertEquals(game.expected_action_player, 2);
+
+  // Once player 2 has played it, player 1 still has to play their freeze.
+  game.player_use(2);
+  assertEquals(game.players[2].second_chances, 1);
+  assertEquals(game.expected_action, "use");
+  assertEquals(game.expected_action_player, 1);
+  assertEquals(game.players[1].cards, ["f", "1"]);
+
+  // Only then does normal play resume, with player 1 (the player after player 0).
   game.player_use(2);
   assertEquals(game.players[2].frozen, true);
-  assertEquals(game.current_turn, 1);
+  assertEquals(game.players[1].cards, ["1"]);
+  assertEquals(game.forced_draws, []);
   assertEquals(game.expected_action, "draw_or_fold");
+  assertEquals(game.current_turn, 1);
+  assertEquals(game.expected_action_player, 1);
+});
+
+Deno.test("A second chance during forced draws does not cancel the remaining draws", () => {
+  const deck = ["d", "5", "1", "2", "3"];
+  const harness = new GameTestHarness(2, deck);
+  const game = harness.game;
+  game.players[1].cards = ["5"];
+  game.players[1].second_chances = 1;
+
+  harness.draw(0);
+  game.player_use(1);
+
+  // The duplicate 5 is discarded and uses up the second chance, with two draws still to go.
+  harness.draw(1);
+  assertEquals(game.players[1].lost, false);
+  assertEquals(game.players[1].second_chances, 0);
+  assertEquals(game.players[1].cards, ["5"]);
+  assertEquals(game.expected_action, "force_draw");
+  assertEquals(game.expected_action_player, 1);
+  assertEquals(game.forced_draws[0][1], 2);
+
+  harness.runActions(["d", "d"]);
+  assertEquals(game.players[1].cards, ["5", "1", "2"]);
+  assertEquals(game.forced_draws, []);
+  assertEquals(game.expected_action, "draw_or_fold");
+  assertEquals(game.expected_action_player, 1);
+});
+
+Deno.test("Action cards can only be played on a valid, active player", () => {
+  const harness = new GameTestHarness(3, ["1", "2", "3"]);
+  const game = harness.game;
+  game.players[0].cards = ["f"];
+  game.players[2].folded = true;
+  game.expected_action = "use";
+
+  // None of these may change anything: not a player, not a whole number, out of range, folded.
+  for (const target of [-1, 1.5, 3, NaN, 2]) {
+    assertEquals(game.player_use(target), []);
+  }
+  assertEquals(game.players[0].cards, ["f"]);
+  assertEquals(game.expected_action, "use");
+  assertEquals(game.expected_action_player, 0);
+
+  assertEquals(game.player_use(1), ["1"]);
+  assertEquals(game.players[1].frozen, true);
+  assertEquals(game.players[0].cards, []);
+});
+
+Deno.test("A freeze that ends the round starts the next round with the following player", () => {
+  const harness = new GameTestHarness(3, ["f", "1", "2"]);
+  const game = harness.game;
+  game.players[1].folded = true;
+  game.players[2].folded = true;
+  game.players[0].cards = ["7"];
+
+  // Player 0 is the last one in and has to freeze themself.
+  harness.draw(0);
+  game.player_use(0);
+  assertEquals(game.round_number, 2);
+  assertEquals(game.players[0].score, 7);
+  assertEquals(game.players[0].frozen, false);
+  assertEquals(game.expected_action, "draw_or_fold");
+  assertEquals(game.current_turn, 1);
   assertEquals(game.expected_action_player, 1);
 });

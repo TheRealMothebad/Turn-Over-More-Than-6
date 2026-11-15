@@ -72,6 +72,11 @@ export class ServerGame extends Game {
 
   player_use(target_order: number): string[] {
     let actions: string[] = [];
+    //action cards can only be played on a real player who is still in the round
+    if (!Number.isInteger(target_order) || target_order < 0 || target_order >= this.players.length || !this.active(target_order)) {
+      console.log("invalid use target", target_order);
+      return actions;
+    }
     actions.push(this.use(target_order));
 
     return actions;
