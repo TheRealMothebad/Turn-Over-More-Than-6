@@ -1,17 +1,19 @@
 /* Table UI for the game screen. index.html still uses style.css. */
 
 :root {
-  --felt: #17513d;
-  --felt-dark: #0c2e23;
-  --ink: #f3f1e7;
-  --ink-dim: rgba(243, 241, 231, 0.62);
-  --line: rgba(243, 241, 231, 0.28);
-  --panel: rgba(0, 0, 0, 0.24);
-  --gold: #ffd166;
-  --good: #7be0a4;
-  --bad: #ff6b6b;
-  --ice: #8fd8ff;
-  --heart: #ff8fb1;
+  --table: #3a3d42;
+  --table-dark: #26282c;
+  --ink: #e8e6df;
+  --ink-dim: rgba(232, 230, 223, 0.6);
+  --line: rgba(232, 230, 223, 0.22);
+  --panel: rgba(0, 0, 0, 0.22);
+  /* the "it's your move" accent, used by the banner and the acting player's outline */
+  --gold: #c9aa5f;
+  --gold-ink: #2b2410;
+  --good: #86bf9c;
+  --bad: #d4766f;
+  --ice: #92b9d1;
+  --heart: #d596a9;
 
   /* card widths: opponents, you, and the piles / reveal */
   --w-opp: clamp(34px, 5.2vw, 64px);
@@ -27,7 +29,7 @@ html, body {
 }
 
 body {
-  background: radial-gradient(ellipse at 50% 35%, var(--felt) 0%, var(--felt-dark) 100%) fixed;
+  background: radial-gradient(ellipse at 50% 30%, var(--table) 0%, var(--table-dark) 100%) fixed;
   color: var(--ink);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 15px;
@@ -70,7 +72,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   border: 0;
   border-radius: 10px;
   background: var(--gold);
-  color: #2a2000;
+  color: var(--gold-ink);
 }
 
 #errors { color: var(--bad); margin: 10px 0 0; }
@@ -107,6 +109,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
   white-space: nowrap;
 }
 
+#round-chip {
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid var(--ink-dim);
+  border-radius: 12px;
+  padding: 6px 14px;
+  font-size: clamp(1rem, 3.4vw, 1.4rem);
+  font-weight: 800;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+}
+
 #banner {
   flex: 1;
   min-width: 0;
@@ -135,15 +149,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 body.my-turn #banner {
   background: var(--gold);
-  border-color: #fff3c4;
-  color: #2a2000;
+  border-color: #dcc68c;
+  color: var(--gold-ink);
   animation: banner-pulse 1.4s ease-in-out infinite;
 }
-body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
+body.my-turn #last-action { color: rgba(43, 36, 16, 0.75); }
 
 @keyframes banner-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 209, 102, 0.55); }
-  50% { box-shadow: 0 0 0 8px rgba(255, 209, 102, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 170, 95, 0.4); }
+  50% { box-shadow: 0 0 0 7px rgba(201, 170, 95, 0); }
 }
 
 /* ---------- player areas ---------- */
@@ -201,7 +215,7 @@ body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
   font-weight: 800;
   letter-spacing: 0.06em;
   background: var(--ink);
-  color: var(--felt-dark);
+  color: var(--table-dark);
   border-radius: 4px;
   padding: 1px 5px;
   align-self: center;
@@ -220,7 +234,7 @@ body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   color: var(--good);
-  background: rgba(123, 224, 164, 0.14);
+  background: rgba(134, 191, 156, 0.14);
   border-radius: 6px;
   padding: 0 6px;
 }
@@ -279,23 +293,23 @@ body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
   background: rgba(255, 255, 255, 0.14);
   white-space: nowrap;
 }
-.badge.frozen { background: var(--ice); color: #063047; }
+.badge.frozen { background: var(--ice); color: #12303f; }
 .badge.folded { background: #cfd3d6; color: #22272b; }
-.badge.lost { background: var(--bad); color: #3d0000; }
-.badge.chance { background: var(--heart); color: #4a0019; }
-.badge.forced { background: var(--gold); color: #2a2000; }
+.badge.lost { background: var(--bad); color: #361311; }
+.badge.chance { background: var(--heart); color: #3d1322; }
+.badge.forced { background: var(--gold); color: var(--gold-ink); }
 .badge.offline { background: #44484c; color: #d6d6d6; }
 
 /* whose move it is */
 .area.acting {
   border-color: var(--gold);
-  box-shadow: 0 0 0 2px var(--gold), 0 0 18px 2px rgba(255, 209, 102, 0.45);
+  box-shadow: 0 0 0 1px var(--gold), 0 0 12px 1px rgba(201, 170, 95, 0.22);
 }
 
 /* round status tints */
-.area.frozen { background: rgba(98, 180, 235, 0.3); border-color: var(--ice); }
+.area.frozen { background: rgba(110, 160, 195, 0.26); border-color: var(--ice); }
 .area.folded { background: rgba(0, 0, 0, 0.42); }
-.area.lost { background: rgba(120, 20, 20, 0.42); border-color: rgba(255, 107, 107, 0.6); }
+.area.lost { background: rgba(110, 45, 42, 0.36); border-color: rgba(212, 118, 111, 0.55); }
 .area.frozen .hand, .area.folded .hand { opacity: 0.6; }
 .area.folded .area-name, .area.lost .area-name { color: var(--ink-dim); }
 .area.offline .area-name { font-style: italic; }
@@ -315,7 +329,7 @@ body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
   left: 50%;
   transform: translate(-50%, -50%);
   background: #fff;
-  color: #10261d;
+  color: #2a2c30;
   font-weight: 800;
   font-size: 0.75rem;
   letter-spacing: 0.06em;
@@ -352,7 +366,7 @@ body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
   font-size: clamp(1rem, 3.6vw, 1.6rem);
   padding: 4px 14px;
   border-radius: 10px;
-  background: rgba(10, 20, 16, 0.92);
+  background: rgba(24, 25, 28, 0.92);
   color: var(--ink);
   border: 2px solid currentColor;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
@@ -399,18 +413,32 @@ body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
   font-size: clamp(1.2rem, 5vw, 1.9rem);
   font-weight: 900;
   letter-spacing: 0.02em;
-  color: #fff;
-  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.35);
+  color: #f4f2ec;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.35);
+  /* a raised key: lit from above, with a solid edge underneath that it sinks into when pressed */
+  background: linear-gradient(to bottom, var(--b-top), var(--b-bottom));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.12),
+    0 6px 0 var(--b-edge),
+    0 9px 12px rgba(0, 0, 0, 0.4);
+  margin-bottom: 6px;
   transition: transform 0.08s, box-shadow 0.08s, filter 0.15s, opacity 0.15s;
   touch-action: manipulation;
 }
 
-#draw_button { background: #2f9e62; }
-#fold_button { background: #c2503f; }
+#draw_button { --b-top: #5a9c7a; --b-bottom: #427c5f; --b-edge: #2b5340; }
+#fold_button { --b-top: #b46f65; --b-bottom: #96554c; --b-edge: #643730; }
 
-#controls button:not(:disabled):hover { filter: brightness(1.12); }
-#controls button:not(:disabled):active { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
-#controls button:disabled { opacity: 0.32; filter: grayscale(0.7); cursor: not-allowed; }
+#controls button:not(:disabled):hover { filter: brightness(1.08); }
+#controls button:not(:disabled):active {
+  transform: translateY(5px);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.3),
+    0 1px 0 var(--b-edge),
+    0 2px 4px rgba(0, 0, 0, 0.4);
+}
+#controls button:disabled { opacity: 0.38; filter: grayscale(0.75); cursor: not-allowed; }
 #controls button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 
 #piles {
@@ -500,12 +528,12 @@ body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
   transform: rotateY(180deg);
   background:
     repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.09) 0 0.12em, transparent 0.12em 0.24em),
-    #7a1f2b;
-  border: 0.09em solid #f3e9d2;
+    #46505e;
+  border: 0.09em solid #d8d5cc;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #f3e9d2;
+  color: #d8d5cc;
   font-weight: 900;
   font-size: 0.55em;
 }
@@ -542,7 +570,7 @@ body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
   font-size: clamp(2rem, 10vw, 4.5rem);
   font-weight: 900;
   text-shadow: 0 4px 24px rgba(0, 0, 0, 0.8);
-  background: rgba(10, 20, 16, 0.78);
+  background: rgba(24, 25, 28, 0.78);
   border-radius: 18px;
   padding: 6px 28px;
   animation: announce-pop var(--dur, 1.3s) ease-out forwards;
@@ -565,7 +593,7 @@ body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
   max-height: 55%;
   overflow-y: auto;
   z-index: 45;
-  background: rgba(10, 20, 16, 0.96);
+  background: rgba(24, 25, 28, 0.96);
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 8px 12px;
@@ -585,7 +613,7 @@ body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(5, 12, 9, 0.72);
+  background: rgba(14, 15, 17, 0.72);
   padding: 16px;
   animation: fade-in 0.4s;
 }
@@ -593,7 +621,7 @@ body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
 @keyframes fade-in { from { opacity: 0; } }
 
 .game-over-card {
-  background: #10261d;
+  background: #2a2c30;
   border: 2px solid var(--gold);
   border-radius: 16px;
   padding: 20px 24px;
@@ -613,7 +641,7 @@ body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
   border-radius: 8px;
   font-variant-numeric: tabular-nums;
 }
-.game-over-card li:first-child { background: rgba(255, 209, 102, 0.16); font-weight: 800; }
+.game-over-card li:first-child { background: rgba(201, 170, 95, 0.16); font-weight: 800; }
 .game-over-card li .place { width: 1.6em; color: var(--ink-dim); }
 .game-over-card li .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .game-over-card button {
@@ -624,7 +652,7 @@ body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
   border: 0;
   border-radius: 10px;
   background: var(--gold);
-  color: #2a2000;
+  color: var(--gold-ink);
 }
 
 /* ---------- connection status ---------- */
@@ -636,7 +664,7 @@ body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
   transform: translateX(-50%);
   z-index: 70;
   background: var(--bad);
-  color: #3d0000;
+  color: #361311;
   font-weight: 700;
   border-radius: 999px;
   padding: 6px 14px;
@@ -644,6 +672,18 @@ body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
   text-align: center;
 }
 #conn-status a { color: inherit; }
+
+/* with enough room the buttons sit in the middle of the screen rather than the middle of the leftover space */
+@media (min-width: 760px) {
+  /* both side columns reserve the width of the two piles, so the middle one is truly centred */
+  #tray {
+    --side: calc(var(--w-pile) * 2 + 34px);
+    display: grid;
+    grid-template-columns: minmax(var(--side), 1fr) minmax(0, 690px) minmax(var(--side), 1fr);
+  }
+  #controls { grid-column: 2; }
+  #piles { grid-column: 3; justify-self: end; }
+}
 
 /* ---------- small screens ---------- */
 
@@ -656,6 +696,7 @@ body.my-turn #last-action { color: rgba(42, 32, 0, 0.7); }
   .area { padding: 5px 6px 6px; }
   .hand { margin: 4px 0; }
   #round-chip, #log-button { padding: 6px 9px; }
+  #round-chip { border-radius: 10px; }
   #tray, #controls, #piles { gap: 6px; }
   #controls button { min-height: 60px; }
   .badge { font-size: 0.62rem; padding: 2px 4px; }

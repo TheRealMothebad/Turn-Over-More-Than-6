@@ -32,8 +32,9 @@ const fold_button = $("fold_button");
 const valid_cards = new Set(Game.build_deck());
 const DECK_SIZE = Game.build_deck().length;
 const reduced_motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-//overall animation speed. 1 is normal, 2 is twice as fast. game.html?speed=2 overrides it for one visit.
-const ANIMATION_SPEED = parseFloat(params.get("speed")) || 1;
+//overall animation speed, change the 1.35 to taste (bigger is faster).
+//game.html?speed=2 multiplies it for one visit.
+const ANIMATION_SPEED = (parseFloat(params.get("speed")) || 1) * 1.35;
 
 // =====================================================================
 // Local game replica
@@ -697,7 +698,7 @@ function render_piles(s) {
     const layers = s.deck_count == null ? 2 : Math.min(5, Math.ceil(s.deck_count / 18));
     const shadow = [];
     for (let i = 1; i <= layers; i++) {
-      shadow.push(`${i}px ${i}px 0 ${i % 2 ? "#4d1019" : "#d9cdb4"}`);
+      shadow.push(`${i}px ${i}px 0 ${i % 2 ? "#2c333d" : "#bdbab1"}`);
     }
     deck_slot.firstChild.style.setProperty("--stack", shadow.join(", "));
   }
